@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "284662662077",
+    "project_id": "hanppyeom",
+    "storage_bucket": "hanppyeom.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:284662662077:android:05137820d13fcb055a88d4",
+        "android_client_info": {
+          "package_name": "com.hyunsu.hanppyeom"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyADXSHMQRFpAYdRSqatvok5O9oZ0-MToGg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
