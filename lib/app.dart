@@ -4,6 +4,7 @@ import 'app_scope.dart';
 import 'repositories/group_repository.dart';
 import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
+import 'repositories/chat_repository.dart';
 import 'repositories/feed_repository.dart';
 import 'repositories/sleep_repository.dart';
 import 'repositories/vaccination_repository.dart';
@@ -38,6 +39,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
   final SleepRepository _sleepRepository = SleepRepository();
   final VaccinationRepository _vaccinationRepository = VaccinationRepository();
   final FeedRepository _feedRepository = FeedRepository();
+  final ChatRepository _chatRepository = ChatRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -51,6 +53,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
       vaccinationRepository: _vaccinationRepository,
       vaccineSchedule: widget.vaccineSchedule,
       feedRepository: _feedRepository,
+      chatRepository: _chatRepository,
       child: MaterialApp(
         title: '한뼘',
         theme: ThemeData(

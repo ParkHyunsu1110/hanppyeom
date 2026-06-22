@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/child.dart';
 import '../models/membership.dart';
+import 'chat_screen.dart';
 import 'child_info_screen.dart';
 import 'feed_screen.dart';
 import 'group_manage_screen.dart';
@@ -90,8 +91,10 @@ class ChildHomeScreen extends StatelessWidget {
           _FeatureCard(
             icon: Icons.chat_bubble,
             label: '채팅',
-            enabled: false,
-            onTap: () {},
+            onTap: () => _go(
+              context,
+              ChatScreen(child: child, myMembership: myMembership),
+            ),
           ),
           _FeatureCard(
             icon: Icons.group,
@@ -116,33 +119,26 @@ class _FeatureCard extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.enabled = true,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Card(
       child: InkWell(
-        onTap: enabled ? onTap : null,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(12),
-        child: Opacity(
-          opacity: enabled ? 1 : 0.4,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 40, color: scheme.primary),
-              const SizedBox(height: 8),
-              Text(label, style: Theme.of(context).textTheme.titleMedium),
-              if (!enabled)
-                Text('준비 중', style: Theme.of(context).textTheme.bodySmall),
-            ],
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 40, color: scheme.primary),
+            const SizedBox(height: 8),
+            Text(label, style: Theme.of(context).textTheme.titleMedium),
+          ],
         ),
       ),
     );

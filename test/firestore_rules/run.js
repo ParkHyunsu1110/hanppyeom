@@ -119,6 +119,14 @@ const path = require('path');
   await ok('친척 FAMILY 글 댓글', addDoc(collection(aunt, 'comments'), { postId: famPost, authorId: 'aunt', text: 'hi', createdAt: new Date() }));
   await denied('친척 COUPLE 글 댓글 차단', addDoc(collection(aunt, 'comments'), { postId: couPost, authorId: 'aunt', text: 'no', createdAt: new Date() }));
 
+  console.log('▶ 채팅');
+  await ok('ACTIVE 멤버 채팅 전송', addDoc(collection(aunt, 'chatMessages'), {
+    groupId: gid, senderId: 'aunt', text: 'hi', createdAt: new Date(),
+  }));
+  await denied('senderId 위조 차단', addDoc(collection(parent, 'chatMessages'), {
+    groupId: gid, senderId: 'someoneelse', text: 'x', createdAt: new Date(),
+  }));
+
   await testEnv.cleanup();
   console.log(failed === 0 ? '\n✅ 모든 규칙 검증 통과' : `\n❌ ${failed}건 실패`);
   process.exit(failed === 0 ? 0 : 1);
