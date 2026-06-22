@@ -146,6 +146,24 @@ service cloud.firestore {
       );
     }
 
+    // ── inviteCodes ───────────────────────────────────────
+    // 코드 → 그룹 매핑. 비멤버(친척)가 코드로 그룹을 찾을 수 있게 별도 분리.
+    // 그룹 문서 자체는 비공개 유지(멤버만). 여기엔 groupId 만 둔다.
+    // 문서 ID = 초대 코드.
+    match /inviteCodes/{code} {
+      allow read: if isSignedIn();
+
+      // 생성: 창립 배치(같은 배치에서 그룹 생성) 또는 관리자의 재발급.
+      // 두 경우 모두 getAfter 멤버십이 ACTIVE·admin 이어야 한다.
+      allow create: if isSignedIn()
+        && existsAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+        && getAfter(membershipDoc(request.resource.data.groupId)).data.status == 'ACTIVE'
+        && getAfter(membershipDoc(request.resource.data.groupId)).data.isAdmin == true;
+
+      allow delete: if isGroupAdmin(resource.data.groupId);
+      allow update: if false;
+    }
+
     // 그 외 모든 경로는 기본 거부.
     match /{document=**} {
       allow read, write: if false;
