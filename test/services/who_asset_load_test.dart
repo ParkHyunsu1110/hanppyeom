@@ -42,5 +42,23 @@ void main() {
       ageMonths: 60,
     );
     expect(h60!.m, closeTo(109.9638, 1e-4));
+
+    // 5세 초과(학령기) 확장 — CDC 2-20세. 키/체중 10세·18세 존재.
+    expect(
+      table.lookup(sex: Sex.male, type: GrowthType.height, ageMonths: 120),
+      isNotNull,
+    );
+    expect(
+      table.lookup(sex: Sex.female, type: GrowthType.weight, ageMonths: 216),
+      isNotNull,
+    );
+    // 키 10세 중앙값(약 138.8cm) 합리성.
+    final h120 = table.lookup(
+      sex: Sex.male,
+      type: GrowthType.height,
+      ageMonths: 120,
+    )!;
+    expect(h120.m, greaterThan(125));
+    expect(h120.m, lessThan(150));
   });
 }
