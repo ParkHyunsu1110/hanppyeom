@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import '../models/child.dart';
 import '../models/family_group.dart';
 import '../models/membership.dart';
+import 'growth_screen.dart';
 import 'membership_display.dart';
 
 /// 가족 그룹·초대 관리 화면. 초대 코드 공유/재발급, 승인 대기 승인/거절, 멤버 목록.
@@ -12,11 +14,11 @@ class GroupManageScreen extends StatelessWidget {
   const GroupManageScreen({
     super.key,
     required this.myMembership,
-    required this.childName,
+    required this.child,
   });
 
   final Membership myMembership;
-  final String childName;
+  final Child child;
 
   String get _groupId => myMembership.groupId;
   bool get _isAdmin => myMembership.isAdmin;
@@ -25,10 +27,21 @@ class GroupManageScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('$childName · 가족')),
+      appBar: AppBar(title: Text('${child.name} · 가족')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          FilledButton.tonalIcon(
+            icon: const Icon(Icons.show_chart),
+            label: const Text('성장기록 보기'),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) =>
+                    GrowthScreen(child: child, myMembership: myMembership),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
           _InviteCodeCard(groupId: _groupId, isAdmin: _isAdmin),
           const SizedBox(height: 24),
           if (_isAdmin) ...[

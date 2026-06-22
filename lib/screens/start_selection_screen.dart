@@ -126,7 +126,7 @@ class _ChildTile extends StatelessWidget {
                     MaterialPageRoute<void>(
                       builder: (_) => GroupManageScreen(
                         myMembership: membership,
-                        childName: child.name,
+                        child: child,
                       ),
                     ),
                   ),
