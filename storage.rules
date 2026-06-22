@@ -1,0 +1,31 @@
+rules_version = '2';
+
+// 한뼘 Storage 규칙. 게시물 사진은 그룹 ACTIVE 멤버만 읽기/쓰기.
+//
+// 멤버십 확인은 Firestore의 memberships 문서를 참조한다(문서 ID = groupId_uid).
+// 주의(프로토타입 한계): COUPLE 게시물 사진도 그룹 멤버면 URL로 접근 가능
+// (글 문서는 규칙으로 숨기지만 Storage는 멤버십까지만 게이트). 추후 글 공개범위
+// 연동으로 강화 가능.
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isActiveMember(gid) {
+      return request.auth != null
+        && firestore.exists(
+          /databases/(default)/documents/memberships/$(gid + '_' + request.auth.uid))
+        && firestore.get(
+          /databases/(default)/documents/memberships/$(gid + '_' + request.auth.uid)
+        ).data.status == 'ACTIVE';
+    }
+
+    match /posts/{groupId}/{fileName} {
+      allow read: if isActiveMember(groupId);
+      allow write: if isActiveMember(groupId)
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
