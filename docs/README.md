@@ -11,10 +11,10 @@
 - 작업 진입 규칙 → `../CLAUDE.md`
 
 ### 구조 이해
-- 프로젝트 맵 → 미생성(코드가 늘어나면 `/code-to-docs`로 생성)
-- 아키텍처 → 미생성(동일)
-- 모듈별 문서 → `modules/`(생성한 경우)
-- API 개요 → `api/`(생성한 경우)
+- 프로젝트 맵 → `project-map.md`
+- 아키텍처(데이터 흐름·규약·컬렉션) → `architecture.md`
+- 모듈별 문서 → `modules/`(현재는 project-map에 통합, 필요 시 분리)
+- API 개요 → `api/`(미생성)
 
 ### 결정 기록
 - 설계 리뷰(PDR) → 신규 기능/화면/API/모듈 또는 큰 동작 변경 시 `design-reviews/`
