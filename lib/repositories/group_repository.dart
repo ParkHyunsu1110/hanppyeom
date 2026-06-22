@@ -88,6 +88,10 @@ class GroupRepository {
     return newCode;
   }
 
+  /// 아이 정보 수정(부모). 문서 ID == groupId 규약.
+  Future<void> updateChild(String groupId, Child child) =>
+      _children.doc(groupId).set(child.toMap());
+
   Future<FamilyGroup?> getGroup(String groupId) async {
     final snap = await _groups.doc(groupId).get();
     if (!snap.exists) return null;

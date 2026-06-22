@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'repositories/group_repository.dart';
 import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
+import 'repositories/sleep_repository.dart';
 import 'services/auth_service.dart';
 import 'services/growth/growth_reference_table.dart';
 
@@ -16,6 +17,7 @@ class AppScope extends InheritedWidget {
     required this.membershipRepository,
     required this.growthRepository,
     required this.growthReferenceTable,
+    required this.sleepRepository,
     required super.child,
   });
 
@@ -24,6 +26,7 @@ class AppScope extends InheritedWidget {
   final MembershipRepository membershipRepository;
   final GrowthRepository growthRepository;
   final GrowthReferenceTable growthReferenceTable;
+  final SleepRepository sleepRepository;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();

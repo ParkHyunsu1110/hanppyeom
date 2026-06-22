@@ -4,6 +4,7 @@ import 'app_scope.dart';
 import 'repositories/group_repository.dart';
 import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
+import 'repositories/sleep_repository.dart';
 import 'screens/auth_gate.dart';
 import 'services/auth_service.dart';
 import 'services/growth/growth_reference_table.dart';
@@ -24,6 +25,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
   final GroupRepository _groupRepository = GroupRepository();
   final MembershipRepository _membershipRepository = MembershipRepository();
   final GrowthRepository _growthRepository = GrowthRepository();
+  final SleepRepository _sleepRepository = SleepRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -33,6 +35,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
       membershipRepository: _membershipRepository,
       growthRepository: _growthRepository,
       growthReferenceTable: widget.growthReferenceTable,
+      sleepRepository: _sleepRepository,
       child: MaterialApp(
         title: '한뼘',
         theme: ThemeData(

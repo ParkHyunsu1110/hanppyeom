@@ -5,3 +5,4 @@ export 'family_group.dart';
 export 'growth_record.dart';
 export 'growth_reference.dart';
 export 'membership.dart';
+export 'sleep_record.dart';

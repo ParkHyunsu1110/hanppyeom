@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../models/child.dart';
 import '../models/membership.dart';
+import 'child_home_screen.dart';
 import 'child_register_screen.dart';
-import 'group_manage_screen.dart';
 import 'join_group_screen.dart';
 import 'membership_display.dart';
 
@@ -124,7 +124,7 @@ class _ChildTile extends StatelessWidget {
                 ? null
                 : () => Navigator.of(context).push(
                     MaterialPageRoute<void>(
-                      builder: (_) => GroupManageScreen(
+                      builder: (_) => ChildHomeScreen(
                         myMembership: membership,
                         child: child,
                       ),
