@@ -1,4 +1,7 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../app_scope.dart';
 import '../models/child.dart';
@@ -67,12 +70,25 @@ class FeedScreen extends StatelessWidget {
       builder: (_) => _ComposeSheet(canCouple: _isParent),
     );
     if (result == null) return;
+    if (result.photoPaths.isNotEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text('사진을 올리는 중…')));
+    }
     try {
+      final urls = <String>[];
+      for (final path in result.photoPaths) {
+        urls.add(
+          await scope.storageRepository.uploadPostPhoto(
+            groupId: _groupId,
+            localPath: path,
+          ),
+        );
+      }
       await scope.feedRepository.createPost(
         groupId: _groupId,
         authorId: _uid,
         caption: result.caption,
         visibility: result.visibility,
+        photoUrls: urls,
       );
       messenger.showSnackBar(const SnackBar(content: Text('게시물을 올렸어요.')));
     } catch (_) {
@@ -121,7 +137,11 @@ class _PostCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 10),
-            Text(post.caption),
+            if (post.caption.isNotEmpty) Text(post.caption),
+            if (post.photoUrls.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _PostPhotos(urls: post.photoUrls),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -169,6 +189,56 @@ class _PostCard extends StatelessWidget {
       context: context,
       isScrollControlled: true,
       builder: (_) => _CommentsSheet(postId: post.id, uid: uid),
+    );
+  }
+}
+
+class _PostPhotos extends StatelessWidget {
+  const _PostPhotos({required this.urls});
+
+  final List<String> urls;
+
+  @override
+  Widget build(BuildContext context) {
+    if (urls.length == 1) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: _photo(urls.first, double.infinity, 220),
+      );
+    }
+    return SizedBox(
+      height: 160,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: urls.length,
+        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        itemBuilder: (context, i) => ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: _photo(urls[i], 160, 160),
+        ),
+      ),
+    );
+  }
+
+  Widget _photo(String url, double w, double h) {
+    return Image.network(
+      url,
+      width: w,
+      height: h,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, progress) => progress == null
+          ? child
+          : SizedBox(
+              width: w,
+              height: h,
+              child: const Center(child: CircularProgressIndicator()),
+            ),
+      errorBuilder: (context, _, _) => Container(
+        width: w == double.infinity ? null : w,
+        height: h,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        child: const Icon(Icons.broken_image),
+      ),
     );
   }
 }
@@ -283,9 +353,10 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 }
 
 class _NewPost {
-  const _NewPost(this.caption, this.visibility);
+  const _NewPost(this.caption, this.visibility, this.photoPaths);
   final String caption;
   final PostVisibility visibility;
+  final List<String> photoPaths;
 }
 
 class _ComposeSheet extends StatefulWidget {
@@ -299,7 +370,10 @@ class _ComposeSheet extends StatefulWidget {
 
 class _ComposeSheetState extends State<_ComposeSheet> {
   final _controller = TextEditingController();
+  final _picker = ImagePicker();
+  final List<XFile> _photos = [];
   PostVisibility _visibility = PostVisibility.family;
+  static const _maxPhotos = 4;
 
   @override
   void dispose() {
@@ -307,10 +381,24 @@ class _ComposeSheetState extends State<_ComposeSheet> {
     super.dispose();
   }
 
+  Future<void> _pickPhotos() async {
+    final picked = await _picker.pickMultiImage(limit: _maxPhotos);
+    if (picked.isEmpty) return;
+    setState(() {
+      for (final x in picked) {
+        if (_photos.length >= _maxPhotos) break;
+        _photos.add(x);
+      }
+    });
+  }
+
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    Navigator.pop(context, _NewPost(text, _visibility));
+    if (text.isEmpty && _photos.isEmpty) return;
+    Navigator.pop(
+      context,
+      _NewPost(text, _visibility, _photos.map((x) => x.path).toList()),
+    );
   }
 
   @override
@@ -363,9 +451,54 @@ class _ComposeSheetState extends State<_ComposeSheet> {
                 style: TextStyle(fontSize: 12),
               ),
             ),
+          const SizedBox(height: 12),
+          if (_photos.isNotEmpty)
+            SizedBox(
+              height: 80,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _photos.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (context, i) => Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.file(
+                        File(_photos[i].path),
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: GestureDetector(
+                        onTap: () => setState(() => _photos.removeAt(i)),
+                        child: const CircleAvatar(
+                          radius: 11,
+                          backgroundColor: Colors.black54,
+                          child: Icon(
+                            Icons.close,
+                            size: 14,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: Text('사진 추가 (${_photos.length}/$_maxPhotos)'),
+              onPressed: _photos.length >= _maxPhotos ? null : _pickPhotos,
+            ),
+          ),
           const SizedBox(height: 8),
-          const Text('사진 첨부는 곧 지원됩니다.', style: TextStyle(fontSize: 12)),
-          const SizedBox(height: 16),
           FilledButton(onPressed: _submit, child: const Text('올리기')),
         ],
       ),

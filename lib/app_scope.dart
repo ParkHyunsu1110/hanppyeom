@@ -6,6 +6,7 @@ import 'repositories/group_repository.dart';
 import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
 import 'repositories/sleep_repository.dart';
+import 'repositories/storage_repository.dart';
 import 'repositories/vaccination_repository.dart';
 import 'services/auth_service.dart';
 import 'services/growth/growth_reference_table.dart';
@@ -26,6 +27,7 @@ class AppScope extends InheritedWidget {
     required this.vaccineSchedule,
     required this.feedRepository,
     required this.chatRepository,
+    required this.storageRepository,
     required super.child,
   });
 
@@ -39,6 +41,7 @@ class AppScope extends InheritedWidget {
   final VaccineSchedule vaccineSchedule;
   final FeedRepository feedRepository;
   final ChatRepository chatRepository;
+  final StorageRepository storageRepository;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
