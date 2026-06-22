@@ -12,7 +12,8 @@
 - 코딩 규칙(린트) → `analysis_options.yaml`(`package:flutter_lints/flutter.yaml`)
 - 설계 리뷰(PDR) → 신규 기능/화면/API/모듈 또는 큰 동작 변경 시 `docs/design-reviews/`
 - skill 추천 결과 → `docs/skill-recommendations.md`
-- 프로젝트 맵/아키텍처 → 미생성(코드가 늘어나면 `/code-to-docs`로 생성)
+- 프로젝트 맵 → `docs/project-map.md`
+- 아키텍처(데이터 흐름·규약·컬렉션) → `docs/architecture.md`
 
 > 프로젝트 규칙·구조는 `pubspec.yaml`, `firebase.json`, `analysis_options.yaml`, `lib/` 코드를 SSOT로 본다. 이 파일에서는 본문을 복제하지 않고 경로만 인용한다.
 
