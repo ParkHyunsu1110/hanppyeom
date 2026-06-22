@@ -1,0 +1,271 @@
+rules_version = '2';
+
+// 한뼘 Firestore 보안 규칙 — Phase 1 (인증 + 가족 그룹/멤버십)
+//
+// 핵심 설계:
+// - 모든 그룹 데이터 접근은 멤버십을 거쳐 검증한다(멤버십 게이트).
+// - 멤버십 문서 ID = `{groupId}_{userId}` → 조인 없이 get/exists 한 번으로 검증.
+// - 규약: 그룹 문서 ID == 아이 문서 ID (아이 1명당 그룹 1개). 따라서
+//   children/{id} 규칙은 memberships/{id}_{uid} 로 바로 게이트한다.
+// - 역할(role)·상태(status)는 UI가 아니라 여기서 강제한다. PENDING은 접근 불가.
+//
+// Phase 5에서 정비 예정(초대 코드 검증 강화, 유일 관리자 보호 등). 미해결은 아래 주석 참고.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function membershipDoc(gid) {
+      return /databases/$(database)/documents/memberships/$(gid + '_' + request.auth.uid);
+    }
+
+    // 내 멤버십 데이터(현재 상태). exists 가드 뒤에서만 호출할 것.
+    function myMembership(gid) {
+      return get(membershipDoc(gid)).data;
+    }
+
+    // 같은 배치(트랜잭션) 적용 후 내 멤버십 데이터(창립 시 사용).
+    function myMembershipAfter(gid) {
+      return getAfter(membershipDoc(gid)).data;
+    }
+
+    function isMember(gid) {
+      return isSignedIn() && exists(membershipDoc(gid));
+    }
+
+    function isActiveMember(gid) {
+      return isMember(gid) && myMembership(gid).status == 'ACTIVE';
+    }
+
+    function isParent(gid) {
+      return isActiveMember(gid) && myMembership(gid).role == 'PARENT';
+    }
+
+    function isGroupAdmin(gid) {
+      return isActiveMember(gid) && myMembership(gid).isAdmin == true;
+    }
+
+    function postData(pid) {
+      return get(/databases/$(database)/documents/posts/$(pid)).data;
+    }
+
+    // 글을 읽을 수 있는가: 그룹 ACTIVE 멤버이고, FAMILY 이거나 PARENT.
+    // 좋아요·댓글이 글의 공개범위를 상속하도록 하는 핵심.
+    function canReadPost(pid) {
+      return isActiveMember(postData(pid).groupId)
+        && (postData(pid).visibility == 'FAMILY'
+            || myMembership(postData(pid).groupId).role == 'PARENT');
+    }
+
+    // ── users ─────────────────────────────────────────────
+    // 멤버 목록에 이름/사진을 표시해야 하므로 로그인 사용자는 읽기 허용.
+    // 쓰기는 본인 문서만.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    // ── groups ────────────────────────────────────────────
+    // 읽기: ACTIVE 멤버. (초대 참여 흐름에서 코드로 그룹을 찾는 조회는
+    //       앱이 별도 코드→그룹 매핑/쿼리로 처리. 여기선 멤버만 직접 read.)
+    // 생성: 창립자가 같은 배치에서 PARENT·ACTIVE·admin 멤버십을 함께 만들 때만.
+    //       그룹 ID == childId 규약을 강제.
+    match /groups/{groupId} {
+      allow read: if isActiveMember(groupId);
+
+      allow create: if isSignedIn()
+        && groupId == request.resource.data.childId
+        && existsAfter(membershipDoc(groupId))
+        && myMembershipAfter(groupId).userId == request.auth.uid
+        && myMembershipAfter(groupId).role == 'PARENT'
+        && myMembershipAfter(groupId).status == 'ACTIVE'
+        && myMembershipAfter(groupId).isAdmin == true;
+
+      // 초대 코드 재발급 등 메타 수정은 관리자만. childId는 불변.
+      allow update: if isGroupAdmin(groupId)
+        && request.resource.data.childId == resource.data.childId;
+
+      allow delete: if false;
+    }
+
+    // ── children ──────────────────────────────────────────
+    // 그룹 ID == 아이 ID 규약 → childId 로 바로 멤버십 게이트.
+    // 읽기: ACTIVE 멤버. 쓰기(수정): PARENT 만(친척은 읽기 전용).
+    // 생성: 창립 배치에서 그룹도 함께 생성되며 본인이 PARENT·ACTIVE·admin 일 때.
+    match /children/{childId} {
+      allow read: if isActiveMember(childId);
+
+      allow create: if isSignedIn()
+        && existsAfter(/databases/$(database)/documents/groups/$(childId))
+        && getAfter(/databases/$(database)/documents/groups/$(childId)).data.childId == childId
+        && myMembershipAfter(childId).role == 'PARENT'
+        && myMembershipAfter(childId).status == 'ACTIVE'
+        && myMembershipAfter(childId).isAdmin == true;
+
+      allow update: if isParent(childId);
+      allow delete: if false;
+    }
+
+    // ── memberships ───────────────────────────────────────
+    // 문서 ID 규약: `{groupId}_{userId}`. 본문 userId 는 항상 본인이거나
+    // (관리자 수정 시) 대상 멤버여야 한다.
+    match /memberships/{membershipId} {
+
+      // 읽기: 본인 멤버십이거나, 같은 그룹의 ACTIVE 멤버(멤버 목록 표시).
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid
+        || isActiveMember(resource.data.groupId)
+      );
+
+      // 생성: 두 경로만 허용.
+      //  (A) 창립자: 같은 배치에서 그룹을 새로 만들며 PARENT·ACTIVE·admin.
+      //  (B) 초대 참여: 기존 그룹에 RELATIVE·PENDING·비관리자.
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && membershipId == request.resource.data.groupId + '_' + request.auth.uid
+        && (
+          (
+            request.resource.data.role == 'PARENT'
+            && request.resource.data.status == 'ACTIVE'
+            && request.resource.data.isAdmin == true
+            && !exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+            && existsAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+          )
+          ||
+          (
+            request.resource.data.role == 'RELATIVE'
+            && request.resource.data.status == 'PENDING'
+            && request.resource.data.isAdmin == false
+            && exists(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+          )
+        );
+
+      // 수정: 그룹 관리자만(PENDING→ACTIVE 승인, 역할/라벨/관리자 변경).
+      //       groupId·userId 는 불변.
+      allow update: if isGroupAdmin(resource.data.groupId)
+        && request.resource.data.groupId == resource.data.groupId
+        && request.resource.data.userId == resource.data.userId;
+
+      // 삭제: 관리자(멤버 제거) 또는 본인(탈퇴/초대 취소).
+      // TODO(Phase 5): 마지막 관리자 보호.
+      allow delete: if isSignedIn() && (
+        isGroupAdmin(resource.data.groupId)
+        || resource.data.userId == request.auth.uid
+      );
+    }
+
+    // ── growthRecords ─────────────────────────────────────
+    // 읽기: 그룹 ACTIVE 멤버. 쓰기: PARENT 만(친척은 읽기 전용).
+    // groupId 비정규화 필드로 게이트. recordedBy 는 작성자 본인.
+    match /growthRecords/{recordId} {
+      allow read: if isActiveMember(resource.data.groupId);
+
+      allow create: if isParent(request.resource.data.groupId)
+        && request.resource.data.recordedBy == request.auth.uid;
+
+      allow update: if isParent(resource.data.groupId)
+        && request.resource.data.groupId == resource.data.groupId;
+
+      allow delete: if isParent(resource.data.groupId);
+    }
+
+    // ── sleepRecords ──────────────────────────────────────
+    // 성장기록과 동일 패턴: 멤버 읽기 / 부모 쓰기 / recordedBy 본인.
+    match /sleepRecords/{recordId} {
+      allow read: if isActiveMember(resource.data.groupId);
+      allow create: if isParent(request.resource.data.groupId)
+        && request.resource.data.recordedBy == request.auth.uid;
+      allow update: if isParent(resource.data.groupId)
+        && request.resource.data.groupId == resource.data.groupId;
+      allow delete: if isParent(resource.data.groupId);
+    }
+
+    // ── vaccinations ──────────────────────────────────────
+    // 접종 완료 기록. 멤버 읽기 / 부모 쓰기 / recordedBy 본인.
+    match /vaccinations/{recordId} {
+      allow read: if isActiveMember(resource.data.groupId);
+      allow create: if isParent(request.resource.data.groupId)
+        && request.resource.data.recordedBy == request.auth.uid;
+      allow update: if isParent(resource.data.groupId)
+        && request.resource.data.groupId == resource.data.groupId;
+      allow delete: if isParent(resource.data.groupId);
+    }
+
+    // ── posts ─────────────────────────────────────────────
+    // 읽기/작성: ACTIVE 멤버 + (FAMILY 이거나 PARENT). COUPLE은 PARENT만.
+    match /posts/{postId} {
+      allow read: if isActiveMember(resource.data.groupId)
+        && (resource.data.visibility == 'FAMILY'
+            || myMembership(resource.data.groupId).role == 'PARENT');
+
+      allow create: if isActiveMember(request.resource.data.groupId)
+        && request.resource.data.authorId == request.auth.uid
+        && (request.resource.data.visibility == 'FAMILY'
+            || myMembership(request.resource.data.groupId).role == 'PARENT');
+
+      allow update: if resource.data.authorId == request.auth.uid
+        && request.resource.data.groupId == resource.data.groupId
+        && request.resource.data.authorId == resource.data.authorId;
+
+      allow delete: if resource.data.authorId == request.auth.uid
+        || isGroupAdmin(resource.data.groupId);
+    }
+
+    // ── likes ─────────────────────────────────────────────
+    // 글 공개범위 상속. 문서 ID = `{postId}_{userId}`.
+    match /likes/{likeId} {
+      allow read: if canReadPost(resource.data.postId);
+      allow create: if canReadPost(request.resource.data.postId)
+        && request.resource.data.userId == request.auth.uid
+        && likeId == request.resource.data.postId + '_' + request.auth.uid;
+      allow delete: if resource.data.userId == request.auth.uid;
+    }
+
+    // ── comments ──────────────────────────────────────────
+    match /comments/{commentId} {
+      allow read: if canReadPost(resource.data.postId);
+      allow create: if canReadPost(request.resource.data.postId)
+        && request.resource.data.authorId == request.auth.uid;
+      allow delete: if resource.data.authorId == request.auth.uid
+        || isGroupAdmin(postData(resource.data.postId).groupId);
+    }
+
+    // ── chatMessages ──────────────────────────────────────
+    // 그룹 단체 대화: ACTIVE 멤버면 읽기/쓰기. 보낸 사람만(또는 관리자) 삭제.
+    match /chatMessages/{msgId} {
+      allow read: if isActiveMember(resource.data.groupId);
+      allow create: if isActiveMember(request.resource.data.groupId)
+        && request.resource.data.senderId == request.auth.uid;
+      allow update: if false;
+      allow delete: if resource.data.senderId == request.auth.uid
+        || isGroupAdmin(resource.data.groupId);
+    }
+
+    // ── inviteCodes ───────────────────────────────────────
+    // 코드 → 그룹 매핑. 비멤버(친척)가 코드로 그룹을 찾을 수 있게 별도 분리.
+    // 그룹 문서 자체는 비공개 유지(멤버만). 여기엔 groupId 만 둔다.
+    // 문서 ID = 초대 코드.
+    match /inviteCodes/{code} {
+      allow read: if isSignedIn();
+
+      // 생성: 창립 배치(같은 배치에서 그룹 생성) 또는 관리자의 재발급.
+      // 두 경우 모두 getAfter 멤버십이 ACTIVE·admin 이어야 한다.
+      allow create: if isSignedIn()
+        && existsAfter(/databases/$(database)/documents/groups/$(request.resource.data.groupId))
+        && getAfter(membershipDoc(request.resource.data.groupId)).data.status == 'ACTIVE'
+        && getAfter(membershipDoc(request.resource.data.groupId)).data.isAdmin == true;
+
+      allow delete: if isGroupAdmin(resource.data.groupId);
+      allow update: if false;
+    }
+
+    // 그 외 모든 경로는 기본 거부.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
