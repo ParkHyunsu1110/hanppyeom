@@ -46,3 +46,17 @@ app.*.map.json
 
 # Claude Code 로컬 개인 설정(공유 안 함)
 .claude/settings.local.json
+
+# Firebase Emulator Suite 로그/내보내기
+*-debug.log
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firestore_export/
+.firebase/
+
+# Firestore 규칙 테스트(Node) 의존성
+test/firestore_rules/node_modules/
+
+# macOS 데스크톱 SPM 빌드 아티팩트(부수 생성, 주 타깃 아님)
+**/xcshareddata/swiftpm/
