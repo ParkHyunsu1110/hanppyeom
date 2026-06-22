@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter/services.dart' show rootBundle;
+
 import '../../models/child.dart' show Sex;
 import '../../models/growth_record.dart' show GrowthType;
 import '../../models/growth_reference.dart';
@@ -16,6 +20,12 @@ class GrowthReferenceTable {
           .map((e) => GrowthReference.fromJson(e as Map<String, dynamic>))
           .toList(growable: false),
     );
+  }
+
+  /// 번들 JSON 에셋에서 기준표를 로드한다.
+  static Future<GrowthReferenceTable> loadAsset(String assetPath) async {
+    final raw = await rootBundle.loadString(assetPath);
+    return GrowthReferenceTable.fromJsonList(jsonDecode(raw) as List<dynamic>);
   }
 
   final List<GrowthReference> _entries;
