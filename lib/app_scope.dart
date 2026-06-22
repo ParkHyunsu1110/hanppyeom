@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'repositories/feed_repository.dart';
 import 'repositories/group_repository.dart';
 import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
@@ -22,6 +23,7 @@ class AppScope extends InheritedWidget {
     required this.sleepRepository,
     required this.vaccinationRepository,
     required this.vaccineSchedule,
+    required this.feedRepository,
     required super.child,
   });
 
@@ -33,6 +35,7 @@ class AppScope extends InheritedWidget {
   final SleepRepository sleepRepository;
   final VaccinationRepository vaccinationRepository;
   final VaccineSchedule vaccineSchedule;
+  final FeedRepository feedRepository;
 
   static AppScope of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/child.dart';
 import '../models/membership.dart';
 import 'child_info_screen.dart';
+import 'feed_screen.dart';
 import 'group_manage_screen.dart';
 import 'growth_screen.dart';
 import 'membership_display.dart';
@@ -81,8 +82,10 @@ class ChildHomeScreen extends StatelessWidget {
           _FeatureCard(
             icon: Icons.photo_library,
             label: '피드',
-            enabled: false,
-            onTap: () {},
+            onTap: () => _go(
+              context,
+              FeedScreen(child: child, myMembership: myMembership),
+            ),
           ),
           _FeatureCard(
             icon: Icons.chat_bubble,

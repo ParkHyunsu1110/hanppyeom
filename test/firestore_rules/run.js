@@ -8,6 +8,8 @@ const {
 } = require('@firebase/rules-unit-testing');
 const {
   doc,
+  collection,
+  addDoc,
   getDoc,
   setDoc,
   updateDoc,
@@ -97,6 +99,25 @@ const path = require('path');
   await denied('성장기록 recordedBy 위조 차단', setDoc(doc(parent, 'growthRecords', `${recId}_y`), {
     childId: gid, groupId: gid, type: 'HEIGHT', value: 80, date: new Date(), recordedBy: 'someoneelse',
   }));
+
+  console.log('▶ 피드 공개범위 (FAMILY/COUPLE 상속)');
+  const t = Date.now();
+  const famPost = `post_fam_${t}`;
+  const couPost = `post_cou_${t}`;
+  const mkPost = (vis, author) => ({
+    groupId: gid, authorId: author, caption: 'x', photoUrls: [], visibility: vis, createdAt: new Date(),
+  });
+  await ok('부모 FAMILY 글 작성', setDoc(doc(parent, 'posts', famPost), mkPost('FAMILY', 'parent')));
+  await ok('부모 COUPLE 글 작성', setDoc(doc(parent, 'posts', couPost), mkPost('COUPLE', 'parent')));
+  await ok('친척 FAMILY 글 읽기', getDoc(doc(aunt, 'posts', famPost)));
+  await denied('친척 COUPLE 글 읽기 차단', getDoc(doc(aunt, 'posts', couPost)));
+  await ok('친척 FAMILY 글 작성', setDoc(doc(aunt, 'posts', `post_af_${t}`), mkPost('FAMILY', 'aunt')));
+  await denied('친척 COUPLE 글 작성 차단', setDoc(doc(aunt, 'posts', `post_ax_${t}`), mkPost('COUPLE', 'aunt')));
+  // 좋아요/댓글은 글 공개범위 상속
+  await ok('친척 FAMILY 글 좋아요', setDoc(doc(aunt, 'likes', `${famPost}_aunt`), { postId: famPost, userId: 'aunt' }));
+  await denied('친척 COUPLE 글 좋아요 차단', setDoc(doc(aunt, 'likes', `${couPost}_aunt`), { postId: couPost, userId: 'aunt' }));
+  await ok('친척 FAMILY 글 댓글', addDoc(collection(aunt, 'comments'), { postId: famPost, authorId: 'aunt', text: 'hi', createdAt: new Date() }));
+  await denied('친척 COUPLE 글 댓글 차단', addDoc(collection(aunt, 'comments'), { postId: couPost, authorId: 'aunt', text: 'no', createdAt: new Date() }));
 
   await testEnv.cleanup();
   console.log(failed === 0 ? '\n✅ 모든 규칙 검증 통과' : `\n❌ ${failed}건 실패`);

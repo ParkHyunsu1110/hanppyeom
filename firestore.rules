@@ -48,6 +48,18 @@ service cloud.firestore {
       return isActiveMember(gid) && myMembership(gid).isAdmin == true;
     }
 
+    function postData(pid) {
+      return get(/databases/$(database)/documents/posts/$(pid)).data;
+    }
+
+    // 글을 읽을 수 있는가: 그룹 ACTIVE 멤버이고, FAMILY 이거나 PARENT.
+    // 좋아요·댓글이 글의 공개범위를 상속하도록 하는 핵심.
+    function canReadPost(pid) {
+      return isActiveMember(postData(pid).groupId)
+        && (postData(pid).visibility == 'FAMILY'
+            || myMembership(postData(pid).groupId).role == 'PARENT');
+    }
+
     // ── users ─────────────────────────────────────────────
     // 멤버 목록에 이름/사진을 표시해야 하므로 로그인 사용자는 읽기 허용.
     // 쓰기는 본인 문서만.
@@ -181,6 +193,45 @@ service cloud.firestore {
       allow update: if isParent(resource.data.groupId)
         && request.resource.data.groupId == resource.data.groupId;
       allow delete: if isParent(resource.data.groupId);
+    }
+
+    // ── posts ─────────────────────────────────────────────
+    // 읽기/작성: ACTIVE 멤버 + (FAMILY 이거나 PARENT). COUPLE은 PARENT만.
+    match /posts/{postId} {
+      allow read: if isActiveMember(resource.data.groupId)
+        && (resource.data.visibility == 'FAMILY'
+            || myMembership(resource.data.groupId).role == 'PARENT');
+
+      allow create: if isActiveMember(request.resource.data.groupId)
+        && request.resource.data.authorId == request.auth.uid
+        && (request.resource.data.visibility == 'FAMILY'
+            || myMembership(request.resource.data.groupId).role == 'PARENT');
+
+      allow update: if resource.data.authorId == request.auth.uid
+        && request.resource.data.groupId == resource.data.groupId
+        && request.resource.data.authorId == resource.data.authorId;
+
+      allow delete: if resource.data.authorId == request.auth.uid
+        || isGroupAdmin(resource.data.groupId);
+    }
+
+    // ── likes ─────────────────────────────────────────────
+    // 글 공개범위 상속. 문서 ID = `{postId}_{userId}`.
+    match /likes/{likeId} {
+      allow read: if canReadPost(resource.data.postId);
+      allow create: if canReadPost(request.resource.data.postId)
+        && request.resource.data.userId == request.auth.uid
+        && likeId == request.resource.data.postId + '_' + request.auth.uid;
+      allow delete: if resource.data.userId == request.auth.uid;
+    }
+
+    // ── comments ──────────────────────────────────────────
+    match /comments/{commentId} {
+      allow read: if canReadPost(resource.data.postId);
+      allow create: if canReadPost(request.resource.data.postId)
+        && request.resource.data.authorId == request.auth.uid;
+      allow delete: if resource.data.authorId == request.auth.uid
+        || isGroupAdmin(postData(resource.data.postId).groupId);
     }
 
     // ── inviteCodes ───────────────────────────────────────
