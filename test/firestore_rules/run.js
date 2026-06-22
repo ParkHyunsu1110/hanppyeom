@@ -85,6 +85,19 @@ const path = require('path');
   await ok('승인된 친척 아이 읽기', getDoc(doc(aunt, 'children', gid)));
   await denied('친척(RELATIVE)의 아이 수정 차단', updateDoc(doc(aunt, 'children', gid), { notes: '시도' }));
 
+  console.log('▶ 성장기록 권한');
+  const recId = 'rec_' + Date.now();
+  await ok('부모(PARENT) 성장기록 생성', setDoc(doc(parent, 'growthRecords', recId), {
+    childId: gid, groupId: gid, type: 'HEIGHT', value: 75, date: new Date(), recordedBy: 'parent',
+  }));
+  await ok('승인된 친척 성장기록 읽기', getDoc(doc(aunt, 'growthRecords', recId)));
+  await denied('친척(RELATIVE) 성장기록 생성 차단', setDoc(doc(aunt, 'growthRecords', `${recId}_x`), {
+    childId: gid, groupId: gid, type: 'HEIGHT', value: 80, date: new Date(), recordedBy: 'aunt',
+  }));
+  await denied('성장기록 recordedBy 위조 차단', setDoc(doc(parent, 'growthRecords', `${recId}_y`), {
+    childId: gid, groupId: gid, type: 'HEIGHT', value: 80, date: new Date(), recordedBy: 'someoneelse',
+  }));
+
   await testEnv.cleanup();
   console.log(failed === 0 ? '\n✅ 모든 규칙 검증 통과' : `\n❌ ${failed}건 실패`);
   process.exit(failed === 0 ? 0 : 1);
