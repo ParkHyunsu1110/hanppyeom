@@ -5,16 +5,25 @@ import 'repositories/group_repository.dart';
 import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
 import 'repositories/sleep_repository.dart';
+import 'repositories/vaccination_repository.dart';
 import 'screens/auth_gate.dart';
 import 'services/auth_service.dart';
 import 'services/growth/growth_reference_table.dart';
+import 'services/vaccine/vaccine_schedule.dart';
 
 /// 한뼘 앱 루트. 서비스 인스턴스를 한 번 만들어 [AppScope]로 내려준다.
 class HanppyeomApp extends StatefulWidget {
-  const HanppyeomApp({super.key, required this.growthReferenceTable});
+  const HanppyeomApp({
+    super.key,
+    required this.growthReferenceTable,
+    required this.vaccineSchedule,
+  });
 
   /// 앱 시작 시 로드한 WHO LMS 기준표(main에서 주입).
   final GrowthReferenceTable growthReferenceTable;
+
+  /// 앱 시작 시 로드한 표준 예방접종 일정(main에서 주입).
+  final VaccineSchedule vaccineSchedule;
 
   @override
   State<HanppyeomApp> createState() => _HanppyeomAppState();
@@ -26,6 +35,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
   final MembershipRepository _membershipRepository = MembershipRepository();
   final GrowthRepository _growthRepository = GrowthRepository();
   final SleepRepository _sleepRepository = SleepRepository();
+  final VaccinationRepository _vaccinationRepository = VaccinationRepository();
 
   @override
   Widget build(BuildContext context) {
@@ -36,6 +46,8 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
       growthRepository: _growthRepository,
       growthReferenceTable: widget.growthReferenceTable,
       sleepRepository: _sleepRepository,
+      vaccinationRepository: _vaccinationRepository,
+      vaccineSchedule: widget.vaccineSchedule,
       child: MaterialApp(
         title: '한뼘',
         theme: ThemeData(

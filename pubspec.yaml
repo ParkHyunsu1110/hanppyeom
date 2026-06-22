@@ -67,6 +67,7 @@ flutter:
 
   assets:
     - assets/growth/who_lms.json
+    - assets/vaccine/schedule_kr.json
 
   # To add assets to your application, add an assets section, like this:
   # assets:

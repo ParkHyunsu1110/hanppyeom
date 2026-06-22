@@ -7,6 +7,7 @@ import 'group_manage_screen.dart';
 import 'growth_screen.dart';
 import 'membership_display.dart';
 import 'sleep_screen.dart';
+import 'vaccination_screen.dart';
 
 /// 아이 홈(허브). 한 아이의 기능 화면들로 진입하는 중심.
 /// 시작 선택에서 활성 아이를 고르면 이 화면으로 들어온다.
@@ -72,8 +73,10 @@ class ChildHomeScreen extends StatelessWidget {
           _FeatureCard(
             icon: Icons.vaccines,
             label: '예방접종',
-            enabled: false,
-            onTap: () {},
+            onTap: () => _go(
+              context,
+              VaccinationScreen(child: child, myMembership: myMembership),
+            ),
           ),
           _FeatureCard(
             icon: Icons.photo_library,

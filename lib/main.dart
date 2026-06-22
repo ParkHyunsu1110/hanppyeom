@@ -4,11 +4,12 @@ import 'package:flutter/material.dart';
 import 'app.dart';
 import 'firebase_options.dart';
 import 'services/growth/growth_reference_table.dart';
+import 'services/vaccine/vaccine_schedule.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  // WHO 성장도표 LMS 기준표(번들 에셋)를 로드한다. 실패해도 앱은 추세선으로 동작.
+  // 번들 에셋(WHO LMS 기준표 / 표준 접종 일정) 로드. 실패해도 앱은 동작.
   GrowthReferenceTable growthReferenceTable;
   try {
     growthReferenceTable = await GrowthReferenceTable.loadAsset(
@@ -17,5 +18,18 @@ void main() async {
   } catch (_) {
     growthReferenceTable = const GrowthReferenceTable.empty();
   }
-  runApp(HanppyeomApp(growthReferenceTable: growthReferenceTable));
+  VaccineSchedule vaccineSchedule;
+  try {
+    vaccineSchedule = await VaccineSchedule.loadAsset(
+      'assets/vaccine/schedule_kr.json',
+    );
+  } catch (_) {
+    vaccineSchedule = const VaccineSchedule.empty();
+  }
+  runApp(
+    HanppyeomApp(
+      growthReferenceTable: growthReferenceTable,
+      vaccineSchedule: vaccineSchedule,
+    ),
+  );
 }
