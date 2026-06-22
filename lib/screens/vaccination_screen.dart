@@ -4,6 +4,7 @@ import '../app_scope.dart';
 import '../models/child.dart';
 import '../models/membership.dart';
 import '../models/vaccination.dart';
+import 'vaccination_map_screen.dart';
 
 /// 예방접종 체크리스트. 표준 일정 위에 아이별 완료 여부를 표시하고,
 /// 부모는 차수별 완료를 체크한다. 지도(근처 병원)는 후속(API 키 필요).
@@ -32,7 +33,20 @@ class VaccinationScreen extends StatelessWidget {
     final items = scope.vaccineSchedule.items;
 
     return Scaffold(
-      appBar: AppBar(title: Text('${child.name} · 예방접종')),
+      appBar: AppBar(
+        title: Text('${child.name} · 예방접종'),
+        actions: [
+          IconButton(
+            tooltip: '근처 병원',
+            icon: const Icon(Icons.map),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(
+                builder: (_) => const VaccinationMapScreen(),
+              ),
+            ),
+          ),
+        ],
+      ),
       body: scope.vaccineSchedule.isEmpty
           ? const Center(child: Text('접종 일정을 불러오지 못했어요.'))
           : StreamBuilder<List<Vaccination>>(
