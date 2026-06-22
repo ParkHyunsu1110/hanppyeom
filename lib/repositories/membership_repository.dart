@@ -8,7 +8,7 @@ import 'repository_exceptions.dart';
 /// 실제 권한은 Firestore 규칙이 강제한다(여기서의 호출은 규칙 위반 시 거부됨).
 class MembershipRepository {
   MembershipRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
+    : _firestore = firestore ?? FirebaseFirestore.instance;
 
   final FirebaseFirestore _firestore;
 
@@ -52,10 +52,9 @@ class MembershipRepository {
   }
 
   /// 관리자가 승인한다(PENDING → ACTIVE). 멱등.
-  Future<void> approve(String membershipId) =>
-      _memberships.doc(membershipId).update({
-        'status': MembershipStatus.active.wire,
-      });
+  Future<void> approve(String membershipId) => _memberships
+      .doc(membershipId)
+      .update({'status': MembershipStatus.active.wire});
 
   /// 관리자가 거절/제거하거나, 본인이 탈퇴한다.
   Future<void> remove(String membershipId) =>

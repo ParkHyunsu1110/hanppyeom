@@ -13,8 +13,8 @@ import '../models/membership.dart';
 /// `inviteCodes/{code}` 컬렉션으로 분리(비멤버 조회용).
 class GroupRepository {
   GroupRepository({FirebaseFirestore? firestore, Random? random})
-      : _firestore = firestore ?? FirebaseFirestore.instance,
-        _random = random ?? Random.secure();
+    : _firestore = firestore ?? FirebaseFirestore.instance,
+      _random = random ?? Random.secure();
 
   final FirebaseFirestore _firestore;
   final Random _random;
@@ -33,9 +33,9 @@ class GroupRepository {
       _firestore.collection('inviteCodes');
 
   String _generateInviteCode() => List.generate(
-        _codeLength,
-        (_) => _codeChars[_random.nextInt(_codeChars.length)],
-      ).join();
+    _codeLength,
+    (_) => _codeChars[_random.nextInt(_codeChars.length)],
+  ).join();
 
   /// 부모가 새 아이를 등록한다. child/group/창립 멤버십/inviteCode 를 한 배치로
   /// 원자적으로 생성하고 생성된 groupId(=childId)를 반환한다.
@@ -94,10 +94,10 @@ class GroupRepository {
     return FamilyGroup.fromDoc(snap);
   }
 
-  Stream<FamilyGroup?> watchGroup(String groupId) =>
-      _groups.doc(groupId).snapshots().map(
-            (snap) => snap.exists ? FamilyGroup.fromDoc(snap) : null,
-          );
+  Stream<FamilyGroup?> watchGroup(String groupId) => _groups
+      .doc(groupId)
+      .snapshots()
+      .map((snap) => snap.exists ? FamilyGroup.fromDoc(snap) : null);
 
   /// 그룹 ID == 아이 ID 규약을 이용해 아이를 조회한다.
   Future<Child?> getChild(String groupId) async {
@@ -106,8 +106,8 @@ class GroupRepository {
     return Child.fromDoc(snap);
   }
 
-  Stream<Child?> watchChild(String groupId) =>
-      _children.doc(groupId).snapshots().map(
-            (snap) => snap.exists ? Child.fromDoc(snap) : null,
-          );
+  Stream<Child?> watchChild(String groupId) => _children
+      .doc(groupId)
+      .snapshots()
+      .map((snap) => snap.exists ? Child.fromDoc(snap) : null);
 }

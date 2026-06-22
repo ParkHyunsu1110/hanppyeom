@@ -53,7 +53,7 @@ class Child {
       name: data['name'] as String? ?? '',
       birthDate:
           (data['birthDate'] as Timestamp?)?.toDate() ??
-              DateTime.fromMillisecondsSinceEpoch(0),
+          DateTime.fromMillisecondsSinceEpoch(0),
       sex: Sex.fromWire(data['sex'] as String?) ?? Sex.male,
       bloodType: data['bloodType'] as String?,
       rrnEncrypted: data['rrnEncrypted'] as String?,
@@ -62,13 +62,13 @@ class Child {
   }
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'name': name,
-        'birthDate': Timestamp.fromDate(birthDate),
-        'sex': sex.wire,
-        'bloodType': bloodType,
-        'rrnEncrypted': rrnEncrypted,
-        'notes': notes,
-      };
+    'name': name,
+    'birthDate': Timestamp.fromDate(birthDate),
+    'sex': sex.wire,
+    'bloodType': bloodType,
+    'rrnEncrypted': rrnEncrypted,
+    'notes': notes,
+  };
 
   Child copyWith({
     String? name,

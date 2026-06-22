@@ -29,16 +29,12 @@ class AppUser {
   }
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'email': email,
-        'displayName': displayName,
-        'photoUrl': photoUrl,
-      };
+    'email': email,
+    'displayName': displayName,
+    'photoUrl': photoUrl,
+  };
 
-  AppUser copyWith({
-    String? email,
-    String? displayName,
-    String? photoUrl,
-  }) {
+  AppUser copyWith({String? email, String? displayName, String? photoUrl}) {
     return AppUser(
       id: id,
       email: email ?? this.email,

@@ -80,13 +80,13 @@ class Membership {
   }
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'userId': userId,
-        'groupId': groupId,
-        'role': role.wire,
-        'relationLabel': relationLabel,
-        'isAdmin': isAdmin,
-        'status': status.wire,
-      };
+    'userId': userId,
+    'groupId': groupId,
+    'role': role.wire,
+    'relationLabel': relationLabel,
+    'isAdmin': isAdmin,
+    'status': status.wire,
+  };
 
   Membership copyWith({
     MemberRole? role,

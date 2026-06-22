@@ -29,14 +29,11 @@ class FamilyGroup {
   }
 
   Map<String, dynamic> toMap() => <String, dynamic>{
-        'childId': childId,
-        'inviteCode': inviteCode,
-      };
+    'childId': childId,
+    'inviteCode': inviteCode,
+  };
 
-  FamilyGroup copyWith({
-    String? childId,
-    String? inviteCode,
-  }) {
+  FamilyGroup copyWith({String? childId, String? inviteCode}) {
     return FamilyGroup(
       id: id,
       childId: childId ?? this.childId,
