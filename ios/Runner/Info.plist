@@ -72,5 +72,7 @@
 	<string>아이 사진을 촬영해 가족 피드에 올리기 위해 카메라 접근이 필요합니다.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>근처 예방접종 병원을 찾기 위해 위치 정보가 필요합니다.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>주민등록번호 등 민감정보 확인 시 본인 인증을 위해 Face ID를 사용합니다.</string>
 </dict>
 </plist>

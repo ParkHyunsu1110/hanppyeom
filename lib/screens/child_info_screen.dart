@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_scope.dart';
 import '../models/child.dart';
 import '../models/membership.dart';
+import '../services/auth/reauth_service.dart';
 
 /// 아이 정보 카드. 생년월일/성별/혈액형/특이사항 표시·수정(부모).
 ///
@@ -48,7 +49,7 @@ class ChildInfoScreen extends StatelessWidget {
                 c.notes?.isNotEmpty == true ? c.notes! : '—',
               ),
               const Divider(height: 32),
-              _RrnRow(),
+              const _RrnRow(),
               if (_canEdit) ...[
                 const SizedBox(height: 24),
                 FilledButton.icon(
@@ -99,6 +100,36 @@ class ChildInfoScreen extends StatelessWidget {
 }
 
 class _RrnRow extends StatelessWidget {
+  const _RrnRow();
+
+  Future<void> _reveal(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final ok = await ReauthService().authenticate(
+      reason: '주민등록번호 확인을 위해 인증해 주세요.',
+    );
+    if (!context.mounted) return;
+    if (!ok) {
+      messenger.showSnackBar(const SnackBar(content: Text('인증에 실패했어요.')));
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('인증 완료'),
+        content: const Text(
+          '전체 주민등록번호 표시는 암호화·복호화 보안 백엔드 도입 후 제공됩니다.\n'
+          '현재 프로토타입은 마스킹만 지원해요.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -109,7 +140,7 @@ class _RrnRow extends StatelessWidget {
         ),
         const Expanded(child: Text('******-*******')),
         TextButton(
-          onPressed: null, // 재인증·복호화 도입 후 활성화(TODO)
+          onPressed: () => _reveal(context),
           child: const Text('전체 보기'),
         ),
       ],
