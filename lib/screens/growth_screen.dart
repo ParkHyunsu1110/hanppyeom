@@ -1,11 +1,15 @@
+import 'dart:math' as math;
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
 import '../models/child.dart';
 import '../models/growth_record.dart';
+import '../models/growth_reference.dart';
 import '../models/membership.dart';
 import '../services/growth/age.dart';
+import '../services/growth/growth_reference_table.dart';
 import '../services/growth/lms_percentile.dart';
 
 /// 성장기록 화면. 유형별 측정 추세를 곡선으로 보고, 기준표가 있으면 백분위도 본다.
@@ -186,7 +190,12 @@ class _GrowthBody extends StatelessWidget {
         const SizedBox(height: 16),
         SizedBox(
           height: 260,
-          child: _Chart(records: records, unit: unit),
+          child: _Chart(
+            records: records,
+            child: child,
+            type: type,
+            table: table,
+          ),
         ),
         const SizedBox(height: 16),
         ...records.reversed.map(
@@ -202,35 +211,119 @@ class _GrowthBody extends StatelessWidget {
   }
 }
 
+/// 나이(개월)를 X축으로, 국가 기준 백분위 곡선(P3~P97)을 배경에 얹고
+/// 그 위에 아이 측정점을 강조해 그린다. 기준표가 없거나 (sex,type) 커브가
+/// 없으면 아이 선만 나이 X축으로 표시한다.
 class _Chart extends StatelessWidget {
-  const _Chart({required this.records, required this.unit});
+  const _Chart({
+    required this.records,
+    required this.child,
+    required this.type,
+    required this.table,
+  });
 
   final List<GrowthRecord> records;
-  final String unit;
+  final Child child;
+  final GrowthType type;
+  final GrowthReferenceTable table;
+
+  /// 기준 백분위 곡선(라벨, Z 점수). P3/P15/P50/P85/P97.
+  static const _percentiles = <(String, double)>[
+    ('3', -1.88079),
+    ('15', -1.03643),
+    ('50', 0.0),
+    ('85', 1.03643),
+    ('97', 1.88079),
+  ];
+
+  /// 기준 커브의 각 나이에서 목표 Z의 값을 계산한 스팟. NaN(정의 안 되는 밑)은 제외.
+  static List<FlSpot> _refSpots(List<GrowthReference> curve, double z) {
+    final spots = <FlSpot>[];
+    for (final ref in curve) {
+      final v = lmsValueForZ(l: ref.l, m: ref.m, s: ref.s, z: z);
+      if (!v.isNaN) spots.add(FlSpot(ref.ageMonths.toDouble(), v));
+    }
+    return spots;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final spots = [
+    final scheme = Theme.of(context).colorScheme;
+
+    final childSpots = [
       for (final r in records)
-        FlSpot(r.date.millisecondsSinceEpoch.toDouble(), r.value),
+        FlSpot(
+          ageInMonths(birthDate: child.birthDate, at: r.date).toDouble(),
+          r.value,
+        ),
     ];
-    final color = Theme.of(context).colorScheme.primary;
+
+    final curve = table.isEmpty
+        ? const <GrowthReference>[]
+        : table.curve(sex: child.sex, type: type);
+
+    // 기준 곡선 5개를 얇고 옅게 배경으로 깐다(P50만 살짝 강조).
+    final refColor = scheme.onSurfaceVariant;
+    final refBars = <LineChartBarData>[
+      if (curve.isNotEmpty)
+        for (final (label, z) in _percentiles)
+          LineChartBarData(
+            spots: _refSpots(curve, z),
+            isCurved: true,
+            color: refColor.withValues(alpha: label == '50' ? 0.55 : 0.3),
+            barWidth: label == '50' ? 1.5 : 1,
+            dotData: const FlDotData(show: false),
+          ),
+    ];
+
+    final childBar = LineChartBarData(
+      spots: childSpots,
+      isCurved: false,
+      color: scheme.primary,
+      barWidth: 3,
+      dotData: const FlDotData(show: true),
+    );
+
+    // X축은 아이 데이터 주변 나이(개월) 창으로 제한한다. 기준 곡선이 0~240개월
+    // 전체로 뻗어 아이 측정점이 눌려 보이는 문제를 막는다(fl_chart가 창 밖을 클립).
+    final childXs = [for (final s in childSpots) s.x];
+    final childMin = childXs.reduce(math.min);
+    final childMax = childXs.reduce(math.max);
+    final pad = math.max(3.0, (childMax - childMin) * 0.25);
+    final minX = math.max(0.0, childMin - pad);
+    final maxX = childMax + pad;
+    final span = maxX - minX;
+    final interval = span < 1
+        ? 1.0
+        : span <= 6
+        ? 2.0
+        : span <= 18
+        ? 6.0
+        : 12.0;
 
     return LineChart(
       LineChartData(
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: false,
-            color: color,
-            barWidth: 3,
-            dotData: const FlDotData(show: true),
-          ),
-        ],
+        minX: minX,
+        maxX: maxX,
+        // 기준 곡선을 먼저 깔고 아이 선을 위에 얹는다.
+        lineBarsData: [...refBars, childBar],
         titlesData: FlTitlesData(
           topTitles: const AxisTitles(),
           rightTitles: const AxisTitles(),
-          bottomTitles: const AxisTitles(),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 28,
+              interval: interval,
+              getTitlesWidget: (value, meta) => SideTitleWidget(
+                meta: meta,
+                child: Text(
+                  '${value.toInt()}개월',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ),
+            ),
+          ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(showTitles: true, reservedSize: 40),
           ),
