@@ -51,7 +51,11 @@ class SleepScreen extends StatelessWidget {
             itemCount: days.length,
             itemBuilder: (context, i) {
               final day = days[i];
-              return _DaySection(day: day, records: byDay[day]!);
+              return _DaySection(
+                day: day,
+                records: byDay[day]!,
+                canEdit: _canEdit,
+              );
             },
           );
         },
@@ -95,10 +99,78 @@ class SleepScreen extends StatelessWidget {
 }
 
 class _DaySection extends StatelessWidget {
-  const _DaySection({required this.day, required this.records});
+  const _DaySection({
+    required this.day,
+    required this.records,
+    required this.canEdit,
+  });
 
   final DateTime day;
   final List<SleepRecord> records;
+
+  /// 부모(PARENT)만 기록 수정/삭제 가능(규칙과 일치).
+  final bool canEdit;
+
+  /// 기존 수면 기록을 프리필한 시트로 수정한다.
+  Future<void> _edit(BuildContext context, SleepRecord record) async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showModalBottomSheet<_NewSleep>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AddSleepSheet(
+        initialStart: record.startAt,
+        initialEnd: record.endAt,
+        initialKind: record.kind,
+      ),
+    );
+    if (result == null) return;
+    try {
+      await scope.sleepRepository.updateRecord(
+        recordId: record.id,
+        startAt: result.start,
+        endAt: result.end,
+        kind: result.kind,
+      );
+      messenger.showSnackBar(const SnackBar(content: Text('수면 기록을 수정했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('수정에 실패했어요. 다시 시도해 주세요.')),
+      );
+    }
+  }
+
+  /// 확인 다이얼로그 후 수면 기록을 삭제한다.
+  Future<void> _delete(BuildContext context, SleepRecord record) async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제할까요?'),
+        content: const Text('이 수면 기록을 삭제해요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await scope.sleepRepository.deleteRecord(record.id);
+      messenger.showSnackBar(const SnackBar(content: Text('삭제했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('삭제에 실패했어요.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,10 +216,30 @@ class _DaySection extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             ...records.map(
-              (r) => Text(
-                '${r.kind == SleepKind.night ? "밤잠" : "낮잠"}  '
-                '${_fmtTime(r.startAt)} ~ ${_fmtTime(r.endAt)}  (${_fmtDur(r.duration)})',
-                style: Theme.of(context).textTheme.bodySmall,
+              (r) => Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${r.kind == SleepKind.night ? "밤잠" : "낮잠"}  '
+                      '${_fmtTime(r.startAt)} ~ ${_fmtTime(r.endAt)}  (${_fmtDur(r.duration)})',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  if (canEdit)
+                    PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      iconSize: 18,
+                      onSelected: (v) => switch (v) {
+                        'edit' => _edit(context, r),
+                        'delete' => _delete(context, r),
+                        _ => null,
+                      },
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(value: 'edit', child: Text('수정')),
+                        PopupMenuItem(value: 'delete', child: Text('삭제')),
+                      ],
+                    ),
+                ],
               ),
             ),
           ],
@@ -204,16 +296,24 @@ class _NewSleep {
 }
 
 class _AddSleepSheet extends StatefulWidget {
-  const _AddSleepSheet();
+  const _AddSleepSheet({this.initialStart, this.initialEnd, this.initialKind});
+
+  /// 값이 있으면 수정 모드로 프리필한다.
+  final DateTime? initialStart;
+  final DateTime? initialEnd;
+  final SleepKind? initialKind;
+
+  bool get isEdit => initialStart != null;
 
   @override
   State<_AddSleepSheet> createState() => _AddSleepSheetState();
 }
 
 class _AddSleepSheetState extends State<_AddSleepSheet> {
-  SleepKind _kind = SleepKind.night;
-  late DateTime _start = DateTime.now().subtract(const Duration(hours: 1));
-  late DateTime _end = DateTime.now();
+  late SleepKind _kind = widget.initialKind ?? SleepKind.night;
+  late DateTime _start =
+      widget.initialStart ?? DateTime.now().subtract(const Duration(hours: 1));
+  late DateTime _end = widget.initialEnd ?? DateTime.now();
   String? _error;
 
   Future<DateTime?> _pick(DateTime initial) async {
@@ -253,7 +353,10 @@ class _AddSleepSheetState extends State<_AddSleepSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('수면 추가', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            widget.isEdit ? '수면 수정' : '수면 추가',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           SegmentedButton<SleepKind>(
             segments: const [

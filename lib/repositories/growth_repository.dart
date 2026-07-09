@@ -36,6 +36,17 @@ class GrowthRepository {
     return ref.id;
   }
 
+  /// 기존 기록의 값/측정일만 갱신한다. groupId 등 불변 필드는 건드리지 않는다
+  /// (Firestore 규칙: 부모만, groupId 불변).
+  Future<void> updateRecord({
+    required String recordId,
+    required double value,
+    required DateTime date,
+  }) => _records.doc(recordId).update({
+    'value': value,
+    'date': Timestamp.fromDate(date),
+  });
+
   Future<void> deleteRecord(String recordId) => _records.doc(recordId).delete();
 
   /// 한 아이의 특정 유형 기록을 측정일 오름차순으로 구독(그래프용).
