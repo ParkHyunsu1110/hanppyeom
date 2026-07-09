@@ -452,9 +452,17 @@ class _RrnHoldRevealState extends State<_RrnHoldReveal> {
         : (_revealed ? _formatRrn(digits) : _maskRrn(digits));
     final primary = Theme.of(context).colorScheme.primary;
     // 주민번호 값 옆에 "꾹 눌러 보기"를 둔다(누르는 동안만 전체 표시).
+    // 마스킹('*')과 실제 숫자는 글자 폭이 달라 전환 시 옆 버튼이 밀린다.
+    // 전체 번호 폭(숫자 14자리)을 투명 텍스트로 고정 확보해 버튼이 안 움직이게 한다.
     return Row(
       children: [
-        Flexible(child: Text(text)),
+        Stack(
+          alignment: Alignment.centerLeft,
+          children: [
+            const Opacity(opacity: 0, child: Text('000000-0000000')),
+            Text(text),
+          ],
+        ),
         const SizedBox(width: 8),
         GestureDetector(
           onTapDown: (_) => _reveal(),
