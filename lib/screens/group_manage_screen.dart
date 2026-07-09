@@ -83,7 +83,12 @@ class GroupManageScreen extends StatelessWidget {
               );
               return Column(
                 children: members
-                    .map((m) => _MemberTile(membership: m))
+                    .map(
+                      (m) => _MemberTile(
+                        membership: m,
+                        canRemove: _isAdmin && m.userId != myMembership.userId,
+                      ),
+                    )
                     .toList(),
               );
             },
@@ -228,9 +233,44 @@ class _PendingTile extends StatelessWidget {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.membership});
+  const _MemberTile({required this.membership, this.canRemove = false});
 
   final Membership membership;
+
+  /// 관리자가 이 구성원을 내보낼 수 있는지(본인 제외). 규칙도 isGroupAdmin을 강제한다.
+  final bool canRemove;
+
+  Future<void> _remove(BuildContext context, String displayName) async {
+    final repo = AppScope.of(context).membershipRepository;
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('구성원 내보내기'),
+        content: Text('$displayName 님을 그룹에서 내보낼까요?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('내보내기'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await repo.remove(membership.id);
+      messenger.showSnackBar(const SnackBar(content: Text('구성원을 내보냈어요.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('내보내기에 실패했어요.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,12 +285,20 @@ class _MemberTile extends StatelessWidget {
         future: authService.fetchAppUser(membership.userId),
         builder: (context, snapshot) {
           final name = snapshot.data?.displayName;
+          final display = name?.isNotEmpty == true
+              ? name!
+              : roleLabel(membership);
           return ListTile(
             leading: const CircleAvatar(child: Icon(Icons.person)),
-            title: Text(
-              name?.isNotEmpty == true ? name! : roleLabel(membership),
-            ),
+            title: Text(display),
             subtitle: Text(roleText),
+            trailing: canRemove
+                ? IconButton(
+                    tooltip: '내보내기',
+                    icon: const Icon(Icons.person_remove_outlined),
+                    onPressed: () => _remove(context, display),
+                  )
+                : null,
           );
         },
       ),
