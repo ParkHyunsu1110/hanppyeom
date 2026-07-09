@@ -226,87 +226,120 @@ class _GrowthBody extends StatelessWidget {
       }
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
+    return Column(
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '최근 측정',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_trim(latest.value)} $unit',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                if (percentileText != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      percentileText,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '최근 측정',
+                            style: Theme.of(context).textTheme.labelMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_trim(latest.value)} $unit',
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ],
                       ),
-                    ),
-                  )
-                else
-                  Text(
-                    '백분위는 기준표 탑재 후 제공',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 260,
-          child: _Chart(
-            records: records,
-            child: child,
-            type: type,
-            table: table,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...records.reversed.map(
-          (r) => ListTile(
-            dense: true,
-            leading: const Icon(Icons.straighten),
-            title: Text('${_trim(r.value)} $unit'),
-            subtitle: Text(_fmtDate(r.date)),
-            trailing: canEdit
-                ? PopupMenuButton<String>(
-                    onSelected: (v) => switch (v) {
-                      'edit' => _edit(context, r),
-                      'delete' => _delete(context, r),
-                      _ => null,
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'edit', child: Text('수정')),
-                      PopupMenuItem(value: 'delete', child: Text('삭제')),
+                      const Spacer(),
+                      if (percentileText != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            percentileText,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: scheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        )
+                      else
+                        Text(
+                          '백분위는 기준표 탑재 후 제공',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                     ],
-                  )
-                : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 260,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 뷰포트에 약 10개 측정점이 보이도록 폭을 잡고, 그보다 많으면
+                    // 그래프 안에서 가로 스크롤한다(reverse: 최신이 먼저 보임).
+                    final width = math.max(
+                      constraints.maxWidth,
+                      records.length * (constraints.maxWidth / 10),
+                    );
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      child: SizedBox(
+                        width: width,
+                        child: _Chart(
+                          records: records,
+                          child: child,
+                          type: type,
+                          table: table,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+            children: [
+              ...records.reversed.map(
+                (r) => ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.straighten),
+                  title: Text('${_trim(r.value)} $unit'),
+                  subtitle: Text(_fmtDate(r.date)),
+                  trailing: canEdit
+                      ? PopupMenuButton<String>(
+                          onSelected: (v) => switch (v) {
+                            'edit' => _edit(context, r),
+                            'delete' => _delete(context, r),
+                            _ => null,
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'edit', child: Text('수정')),
+                            PopupMenuItem(value: 'delete', child: Text('삭제')),
+                          ],
+                        )
+                      : null,
+                ),
+              ),
+            ],
           ),
         ),
       ],
