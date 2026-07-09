@@ -89,6 +89,8 @@ class _GrowthScreenState extends State<GrowthScreen> {
                   child: widget.child,
                   type: _type,
                   unit: _unit,
+                  typeLabel: _typeLabel,
+                  canEdit: _canEdit,
                 );
               },
             ),
@@ -131,15 +133,83 @@ class _GrowthBody extends StatelessWidget {
     required this.child,
     required this.type,
     required this.unit,
+    required this.typeLabel,
+    required this.canEdit,
   });
 
   final List<GrowthRecord> records;
   final Child child;
   final GrowthType type;
   final String unit;
+  final String typeLabel;
+
+  /// 부모(PARENT)만 기록 수정/삭제 가능(규칙과 일치).
+  final bool canEdit;
+
+  /// 기존 기록을 프리필한 시트로 수정한다.
+  Future<void> _edit(BuildContext context, GrowthRecord record) async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showModalBottomSheet<_NewRecord>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _AddRecordSheet(
+        typeLabel: typeLabel,
+        unit: unit,
+        initialValue: record.value,
+        initialDate: record.date,
+      ),
+    );
+    if (result == null) return;
+    try {
+      await scope.growthRepository.updateRecord(
+        recordId: record.id,
+        value: result.value,
+        date: result.date,
+      );
+      messenger.showSnackBar(const SnackBar(content: Text('기록을 수정했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('수정에 실패했어요. 다시 시도해 주세요.')),
+      );
+    }
+  }
+
+  /// 확인 다이얼로그 후 기록을 삭제한다.
+  Future<void> _delete(BuildContext context, GrowthRecord record) async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제할까요?'),
+        content: const Text('이 기록을 삭제해요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await scope.growthRepository.deleteRecord(record.id);
+      messenger.showSnackBar(const SnackBar(content: Text('삭제했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('삭제에 실패했어요.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final latest = records.last;
     final table = AppScope.of(context).growthReferenceTable;
 
@@ -174,15 +244,35 @@ class _GrowthBody extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${_trim(latest.value)} $unit',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                   ],
                 ),
                 const Spacer(),
-                Text(
-                  percentileText ?? '백분위는 기준표 탑재 후 제공',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                if (percentileText != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      percentileText,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    '백분위는 기준표 탑재 후 제공',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
               ],
             ),
           ),
@@ -204,6 +294,19 @@ class _GrowthBody extends StatelessWidget {
             leading: const Icon(Icons.straighten),
             title: Text('${_trim(r.value)} $unit'),
             subtitle: Text(_fmtDate(r.date)),
+            trailing: canEdit
+                ? PopupMenuButton<String>(
+                    onSelected: (v) => switch (v) {
+                      'edit' => _edit(context, r),
+                      'delete' => _delete(context, r),
+                      _ => null,
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'edit', child: Text('수정')),
+                      PopupMenuItem(value: 'delete', child: Text('삭제')),
+                    ],
+                  )
+                : null,
           ),
         ),
       ],
@@ -343,10 +446,21 @@ class _NewRecord {
 }
 
 class _AddRecordSheet extends StatefulWidget {
-  const _AddRecordSheet({required this.typeLabel, required this.unit});
+  const _AddRecordSheet({
+    required this.typeLabel,
+    required this.unit,
+    this.initialValue,
+    this.initialDate,
+  });
 
   final String typeLabel;
   final String unit;
+
+  /// 값이 있으면 수정 모드로 프리필한다.
+  final double? initialValue;
+  final DateTime? initialDate;
+
+  bool get isEdit => initialValue != null;
 
   @override
   State<_AddRecordSheet> createState() => _AddRecordSheetState();
@@ -354,8 +468,10 @@ class _AddRecordSheet extends StatefulWidget {
 
 class _AddRecordSheetState extends State<_AddRecordSheet> {
   final _formKey = GlobalKey<FormState>();
-  final _valueController = TextEditingController();
-  DateTime _date = DateTime.now();
+  late final _valueController = TextEditingController(
+    text: widget.initialValue == null ? '' : _trim(widget.initialValue!),
+  );
+  late DateTime _date = widget.initialDate ?? DateTime.now();
 
   @override
   void dispose() {
@@ -396,7 +512,7 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              '${widget.typeLabel} 기록 추가',
+              '${widget.typeLabel} 기록 ${widget.isEdit ? "수정" : "추가"}',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
@@ -408,7 +524,6 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
               autofocus: true,
               decoration: InputDecoration(
                 labelText: '${widget.typeLabel} (${widget.unit})',
-                border: const OutlineInputBorder(),
               ),
               validator: (v) {
                 final parsed = double.tryParse((v ?? '').trim());

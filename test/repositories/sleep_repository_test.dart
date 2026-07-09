@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hanppyeom/models/models.dart';
@@ -56,5 +57,52 @@ void main() {
   test('SleepKind.fromWire 폴백', () {
     expect(SleepKind.fromWire('NIGHT'), SleepKind.night);
     expect(SleepKind.fromWire('X'), SleepKind.nap);
+  });
+
+  test('updateRecord는 시작/종료/종류만 바꾸고 groupId 등 불변 필드는 유지한다', () async {
+    final id = await repo.addRecord(
+      groupId: 'g1',
+      startAt: DateTime(2026, 1, 1, 13),
+      endAt: DateTime(2026, 1, 1, 14),
+      kind: SleepKind.nap,
+      recordedBy: 'u1',
+    );
+
+    await repo.updateRecord(
+      recordId: id,
+      startAt: DateTime(2026, 1, 1, 22),
+      endAt: DateTime(2026, 1, 2, 6),
+      kind: SleepKind.night,
+    );
+
+    final snap = await fs.collection('sleepRecords').doc(id).get();
+    expect(snap.data()!['kind'], 'NIGHT');
+    expect(
+      (snap.data()!['startAt'] as Timestamp).toDate(),
+      DateTime(2026, 1, 1, 22),
+    );
+    expect(
+      (snap.data()!['endAt'] as Timestamp).toDate(),
+      DateTime(2026, 1, 2, 6),
+    );
+    // 규칙(groupId 불변)·규약 필드는 그대로여야 한다.
+    expect(snap.data()!['groupId'], 'g1');
+    expect(snap.data()!['childId'], 'g1');
+    expect(snap.data()!['recordedBy'], 'u1');
+  });
+
+  test('deleteRecord는 문서를 제거한다', () async {
+    final id = await repo.addRecord(
+      groupId: 'g1',
+      startAt: DateTime(2026, 1, 1, 13),
+      endAt: DateTime(2026, 1, 1, 14),
+      kind: SleepKind.nap,
+      recordedBy: 'u1',
+    );
+
+    await repo.deleteRecord(id);
+
+    final snap = await fs.collection('sleepRecords').doc(id).get();
+    expect(snap.exists, isFalse);
   });
 }

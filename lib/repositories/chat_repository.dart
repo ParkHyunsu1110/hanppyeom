@@ -28,6 +28,10 @@ class ChatRepository {
     );
   }
 
+  /// 메시지 삭제. 규칙: 보낸 사람 또는 그룹 관리자. (수정은 규칙상 없음)
+  Future<void> deleteMessage(String messageId) =>
+      _messages.doc(messageId).delete();
+
   /// 시간 오름차순(오래된→최신) 구독.
   Stream<List<ChatMessage>> watchMessages(String groupId) => _messages
       .where('groupId', isEqualTo: groupId)

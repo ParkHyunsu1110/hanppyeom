@@ -33,6 +33,19 @@ class SleepRepository {
     return ref.id;
   }
 
+  /// 기존 기록의 시작/종료/종류만 갱신한다. groupId 등 불변 필드는 건드리지 않는다
+  /// (Firestore 규칙: 부모만, groupId 불변).
+  Future<void> updateRecord({
+    required String recordId,
+    required DateTime startAt,
+    required DateTime endAt,
+    required SleepKind kind,
+  }) => _records.doc(recordId).update({
+    'startAt': Timestamp.fromDate(startAt),
+    'endAt': Timestamp.fromDate(endAt),
+    'kind': kind.wire,
+  });
+
   Future<void> deleteRecord(String recordId) => _records.doc(recordId).delete();
 
   /// 시작 시각 내림차순(최근 우선) 구독.

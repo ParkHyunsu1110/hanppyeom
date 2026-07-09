@@ -41,6 +41,17 @@ class FeedRepository {
     return ref.id;
   }
 
+  /// 게시물의 캡션/공개범위만 갱신한다. 사진은 유지하며 groupId·authorId 등
+  /// 불변 필드는 건드리지 않는다 (Firestore 규칙: 작성자만, groupId·authorId 불변).
+  Future<void> updatePost({
+    required String postId,
+    required String caption,
+    required PostVisibility visibility,
+  }) => _posts.doc(postId).update({
+    'caption': caption,
+    'visibility': visibility.wire,
+  });
+
   Future<void> deletePost(String postId) => _posts.doc(postId).delete();
 
   /// 피드 구독. 친척(비부모)은 COUPLE 글을 읽을 수 없으므로 FAMILY만 질의해야
@@ -92,6 +103,10 @@ class FeedRepository {
       ).toMap(),
     );
   }
+
+  /// 댓글 삭제. 규칙: 작성자 또는 그룹 관리자.
+  Future<void> deleteComment(String commentId) =>
+      _comments.doc(commentId).delete();
 
   Stream<List<Comment>> watchComments(String postId) => _comments
       .where('postId', isEqualTo: postId)

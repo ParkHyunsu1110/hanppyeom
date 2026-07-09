@@ -223,10 +223,7 @@ class _EditChildSheetState extends State<_EditChildSheet> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _name,
-              decoration: const InputDecoration(
-                labelText: '이름',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: '이름'),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? '이름을 입력해 주세요.' : null,
             ),
@@ -248,19 +245,13 @@ class _EditChildSheetState extends State<_EditChildSheet> {
             const SizedBox(height: 12),
             TextFormField(
               controller: _blood,
-              decoration: const InputDecoration(
-                labelText: '혈액형 (선택)',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: '혈액형 (선택)'),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _notes,
               maxLines: 3,
-              decoration: const InputDecoration(
-                labelText: '특이사항 (선택)',
-                border: OutlineInputBorder(),
-              ),
+              decoration: const InputDecoration(labelText: '특이사항 (선택)'),
             ),
             const SizedBox(height: 16),
             FilledButton(onPressed: _submit, child: const Text('저장')),

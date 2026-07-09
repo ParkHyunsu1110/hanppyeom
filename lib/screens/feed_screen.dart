@@ -54,7 +54,8 @@ class FeedScreen extends StatelessWidget {
           return ListView.builder(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 88),
             itemCount: posts.length,
-            itemBuilder: (context, i) => _PostCard(post: posts[i], uid: _uid),
+            itemBuilder: (context, i) =>
+                _PostCard(post: posts[i], myMembership: myMembership),
           );
         },
       ),
@@ -102,10 +103,82 @@ class FeedScreen extends StatelessWidget {
 }
 
 class _PostCard extends StatelessWidget {
-  const _PostCard({required this.post, required this.uid});
+  const _PostCard({required this.post, required this.myMembership});
 
   final Post post;
-  final String uid;
+  final Membership myMembership;
+
+  String get uid => myMembership.userId;
+
+  /// 수정은 작성자 본인만(규칙과 일치).
+  bool get _canEdit => post.authorId == uid;
+
+  /// 삭제는 작성자 또는 그룹 관리자(규칙과 일치).
+  bool get _canDelete => post.authorId == uid || myMembership.isAdmin;
+
+  /// "우리 부부만"은 부모만 선택 가능(작성 규칙과 동일).
+  bool get _canCouple => myMembership.role == MemberRole.parent;
+
+  /// 캡션/공개범위만 수정한다(사진은 유지, 범위 밖).
+  Future<void> _edit(BuildContext context) async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showModalBottomSheet<_NewPost>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ComposeSheet(
+        canCouple: _canCouple,
+        isEdit: true,
+        initialCaption: post.caption,
+        initialVisibility: post.visibility,
+      ),
+    );
+    if (result == null) return;
+    try {
+      await scope.feedRepository.updatePost(
+        postId: post.id,
+        caption: result.caption,
+        visibility: result.visibility,
+      );
+      messenger.showSnackBar(const SnackBar(content: Text('게시물을 수정했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('수정에 실패했어요. 다시 시도해 주세요.')),
+      );
+    }
+  }
+
+  /// 확인 다이얼로그 후 게시물을 삭제한다.
+  Future<void> _delete(BuildContext context) async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제할까요?'),
+        content: const Text('이 게시물을 삭제해요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await scope.feedRepository.deletePost(post.id);
+      messenger.showSnackBar(const SnackBar(content: Text('삭제했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('삭제에 실패했어요.')));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -136,6 +209,22 @@ class _PostCard extends StatelessWidget {
                   _fmtTime(post.createdAt),
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
+                if (_canEdit || _canDelete)
+                  PopupMenuButton<String>(
+                    padding: EdgeInsets.zero,
+                    iconSize: 18,
+                    onSelected: (v) => switch (v) {
+                      'edit' => _edit(context),
+                      'delete' => _delete(context),
+                      _ => null,
+                    },
+                    itemBuilder: (context) => [
+                      if (_canEdit)
+                        const PopupMenuItem(value: 'edit', child: Text('수정')),
+                      if (_canDelete)
+                        const PopupMenuItem(value: 'delete', child: Text('삭제')),
+                    ],
+                  ),
               ],
             ),
             const SizedBox(height: 10),
@@ -190,7 +279,11 @@ class _PostCard extends StatelessWidget {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (_) => _CommentsSheet(postId: post.id, uid: uid),
+      builder: (_) => _CommentsSheet(
+        postId: post.id,
+        uid: uid,
+        isAdmin: myMembership.isAdmin,
+      ),
     );
   }
 }
@@ -246,10 +339,17 @@ class _PostPhotos extends StatelessWidget {
 }
 
 class _CommentsSheet extends StatefulWidget {
-  const _CommentsSheet({required this.postId, required this.uid});
+  const _CommentsSheet({
+    required this.postId,
+    required this.uid,
+    required this.isAdmin,
+  });
 
   final String postId;
   final String uid;
+
+  /// 관리자면 남의 댓글도 삭제 가능(규칙과 일치).
+  final bool isAdmin;
 
   @override
   State<_CommentsSheet> createState() => _CommentsSheetState();
@@ -282,6 +382,38 @@ class _CommentsSheetState extends State<_CommentsSheet> {
     }
   }
 
+  /// 확인 다이얼로그 후 댓글을 삭제한다(본인 또는 관리자).
+  Future<void> _delete(Comment comment) async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final scheme = Theme.of(context).colorScheme;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('삭제할까요?'),
+        content: const Text('이 댓글을 삭제해요.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('취소'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: scheme.error),
+            child: const Text('삭제'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await scope.feedRepository.deleteComment(comment.id);
+      messenger.showSnackBar(const SnackBar(content: Text('삭제했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('삭제에 실패했어요.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
@@ -308,6 +440,8 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                     itemCount: comments.length,
                     itemBuilder: (context, i) {
                       final c = comments[i];
+                      final canDelete =
+                          c.authorId == widget.uid || widget.isAdmin;
                       return ListTile(
                         leading: const CircleAvatar(
                           radius: 14,
@@ -319,6 +453,15 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                               Text(s.data?.displayName ?? '가족'),
                         ),
                         subtitle: Text(c.text),
+                        trailing: canDelete
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                ),
+                                onPressed: () => _delete(c),
+                              )
+                            : null,
                       );
                     },
                   );
@@ -335,7 +478,6 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       controller: _controller,
                       decoration: const InputDecoration(
                         hintText: '댓글 입력',
-                        border: OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
@@ -418,19 +560,32 @@ String _extensionForContentType(String contentType) {
 }
 
 class _ComposeSheet extends StatefulWidget {
-  const _ComposeSheet({required this.canCouple});
+  const _ComposeSheet({
+    required this.canCouple,
+    this.isEdit = false,
+    this.initialCaption,
+    this.initialVisibility,
+  });
 
   final bool canCouple;
+
+  /// 수정 모드면 사진 편집은 숨기고 캡션/공개범위만 다룬다(사진은 유지, 범위 밖).
+  final bool isEdit;
+  final String? initialCaption;
+  final PostVisibility? initialVisibility;
 
   @override
   State<_ComposeSheet> createState() => _ComposeSheetState();
 }
 
 class _ComposeSheetState extends State<_ComposeSheet> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(
+    text: widget.initialCaption ?? '',
+  );
   final _picker = ImagePicker();
   final List<_PickedPhoto> _photos = [];
-  PostVisibility _visibility = PostVisibility.family;
+  late PostVisibility _visibility =
+      widget.initialVisibility ?? PostVisibility.family;
   static const _maxPhotos = 4;
   static const _maxBytes = 10 * 1024 * 1024; // Storage 규칙: 10MB 미만
 
@@ -488,7 +643,8 @@ class _ComposeSheetState extends State<_ComposeSheet> {
 
   void _submit() {
     final text = _controller.text.trim();
-    if (text.isEmpty && _photos.isEmpty) return;
+    // 수정 모드는 기존 사진이 남으므로 캡션이 비어도 저장할 수 있다.
+    if (!widget.isEdit && text.isEmpty && _photos.isEmpty) return;
     Navigator.pop(context, _NewPost(text, _visibility, List.of(_photos)));
   }
 
@@ -505,16 +661,16 @@ class _ComposeSheetState extends State<_ComposeSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('새 게시물', style: Theme.of(context).textTheme.titleLarge),
+          Text(
+            widget.isEdit ? '게시물 수정' : '새 게시물',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
           const SizedBox(height: 16),
           TextField(
             controller: _controller,
             maxLines: 4,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '오늘의 기록을 남겨보세요',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(hintText: '오늘의 기록을 남겨보세요'),
           ),
           const SizedBox(height: 16),
           SegmentedButton<PostVisibility>(
@@ -589,16 +745,20 @@ class _ComposeSheetState extends State<_ComposeSheet> {
                 ),
               ),
             ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              icon: const Icon(Icons.add_photo_alternate_outlined),
-              label: Text('사진 추가 (${_photos.length}/$_maxPhotos)'),
-              onPressed: _photos.length >= _maxPhotos ? null : _pickPhotos,
+          if (!widget.isEdit)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text('사진 추가 (${_photos.length}/$_maxPhotos)'),
+                onPressed: _photos.length >= _maxPhotos ? null : _pickPhotos,
+              ),
             ),
-          ),
           const SizedBox(height: 8),
-          FilledButton(onPressed: _submit, child: const Text('올리기')),
+          FilledButton(
+            onPressed: _submit,
+            child: Text(widget.isEdit ? '저장' : '올리기'),
+          ),
         ],
       ),
     );

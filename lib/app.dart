@@ -13,6 +13,7 @@ import 'screens/auth_gate.dart';
 import 'services/auth_service.dart';
 import 'services/growth/growth_reference_table.dart';
 import 'services/vaccine/vaccine_schedule.dart';
+import 'theme/toss_theme.dart';
 
 /// 한뼘 앱 루트. 서비스 인스턴스를 한 번 만들어 [AppScope]로 내려준다.
 class HanppyeomApp extends StatefulWidget {
@@ -59,10 +60,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
       storageRepository: _storageRepository,
       child: MaterialApp(
         title: '한뼘',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFFFF8A65)),
-          useMaterial3: true,
-        ),
+        theme: tossTheme(),
         home: const AuthGate(),
       ),
     );

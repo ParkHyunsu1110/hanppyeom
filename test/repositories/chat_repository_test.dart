@@ -18,4 +18,18 @@ void main() {
     expect(msgs.last.text, '반가워');
     expect(msgs.every((m) => m.groupId == 'g1'), isTrue);
   });
+
+  test('deleteMessage는 해당 메시지만 제거한다', () async {
+    final fs = FakeFirebaseFirestore();
+    final repo = ChatRepository(firestore: fs);
+
+    await repo.send(groupId: 'g1', senderId: 'u1', text: '지울 메시지');
+    var msgs = await repo.watchMessages('g1').first;
+    expect(msgs.length, 1);
+
+    await repo.deleteMessage(msgs.first.id);
+
+    msgs = await repo.watchMessages('g1').first;
+    expect(msgs, isEmpty);
+  });
 }
