@@ -53,7 +53,7 @@ class SleepScreen extends StatelessWidget {
               final day = days[i];
               return _DaySection(
                 day: day,
-                records: byDay[day]!,
+                segments: byDay[day]!,
                 canEdit: _canEdit,
               );
             },
@@ -63,11 +63,18 @@ class SleepScreen extends StatelessWidget {
     );
   }
 
-  Map<DateTime, List<SleepRecord>> _groupByDay(List<SleepRecord> records) {
-    final map = <DateTime, List<SleepRecord>>{};
+  /// 각 수면 레코드를 자정 경계로 쪼갠 세그먼트를 날짜별로 모은다.
+  /// 자정을 넘는 수면은 시작일·다음날 섹션에 각각 나뉘어 표시된다.
+  Map<DateTime, List<SleepSegment>> _groupByDay(List<SleepRecord> records) {
+    final map = <DateTime, List<SleepSegment>>{};
     for (final r in records) {
-      final day = DateTime(r.startAt.year, r.startAt.month, r.startAt.day);
-      map.putIfAbsent(day, () => []).add(r);
+      for (final seg in splitSleepByDay(r)) {
+        map.putIfAbsent(seg.day, () => []).add(seg);
+      }
+    }
+    // 같은 날 안에서는 시작 시각 순으로 정렬한다.
+    for (final segs in map.values) {
+      segs.sort((a, b) => a.start.compareTo(b.start));
     }
     return map;
   }
@@ -101,12 +108,14 @@ class SleepScreen extends StatelessWidget {
 class _DaySection extends StatelessWidget {
   const _DaySection({
     required this.day,
-    required this.records,
+    required this.segments,
     required this.canEdit,
   });
 
   final DateTime day;
-  final List<SleepRecord> records;
+
+  /// 이 날짜에 속한 수면 세그먼트들(자정 분할 결과). 수정/삭제는 원본 레코드 단위.
+  final List<SleepSegment> segments;
 
   /// 부모(PARENT)만 기록 수정/삭제 가능(규칙과 일치).
   final bool canEdit;
@@ -174,9 +183,10 @@ class _DaySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = records.fold<Duration>(
+    // 날짜 총합은 그 날에 속한 세그먼트 길이의 합(자정 넘긴 수면은 날짜별로 나뉜다).
+    final total = segments.fold<Duration>(
       Duration.zero,
-      (sum, r) => sum + r.duration,
+      (sum, s) => sum + s.duration,
     );
     return Card(
       child: Padding(
@@ -200,7 +210,7 @@ class _DaySection extends StatelessWidget {
               child: CustomPaint(
                 size: Size.infinite,
                 painter: _DayBarPainter(
-                  records: records,
+                  segments: segments,
                   day: day,
                   color: Theme.of(context).colorScheme.primary,
                   trackColor: Theme.of(
@@ -215,13 +225,13 @@ class _DaySection extends StatelessWidget {
               children: const [Text('0시'), Text('12시'), Text('24시')],
             ),
             const SizedBox(height: 8),
-            ...records.map(
-              (r) => Row(
+            ...segments.map(
+              (seg) => Row(
                 children: [
                   Expanded(
                     child: Text(
-                      '${r.kind == SleepKind.night ? "밤잠" : "낮잠"}  '
-                      '${_fmtTime(r.startAt)} ~ ${_fmtTime(r.endAt)}  (${_fmtDur(r.duration)})',
+                      '${seg.record.kind == SleepKind.night ? "밤잠" : "낮잠"}  '
+                      '${_fmtTime(seg.start)} ~ ${_fmtSegEnd(seg)}  (${_fmtDur(seg.duration)})',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ),
@@ -230,8 +240,9 @@ class _DaySection extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       iconSize: 18,
                       onSelected: (v) => switch (v) {
-                        'edit' => _edit(context, r),
-                        'delete' => _delete(context, r),
+                        // 수정/삭제는 세그먼트가 아니라 원본 레코드 전체에 적용된다.
+                        'edit' => _edit(context, seg.record),
+                        'delete' => _delete(context, seg.record),
                         _ => null,
                       },
                       itemBuilder: (context) => const [
@@ -249,16 +260,17 @@ class _DaySection extends StatelessWidget {
   }
 }
 
-/// 하루(0~24시) 위에 수면 블록을 그린다. 자정을 넘는 블록은 해당 날의 끝(24시)으로 클램프.
+/// 하루(0~24시) 위에 수면 블록을 그린다. 세그먼트는 이미 [day, day+1] 안에 들어와 있고,
+/// 방어적으로 남겨둔 클램프도 그 범위를 벗어나지 않으므로 그대로 그린다.
 class _DayBarPainter extends CustomPainter {
   _DayBarPainter({
-    required this.records,
+    required this.segments,
     required this.day,
     required this.color,
     required this.trackColor,
   });
 
-  final List<SleepRecord> records;
+  final List<SleepSegment> segments;
   final DateTime day;
   final Color color;
   final Color trackColor;
@@ -274,9 +286,9 @@ class _DayBarPainter extends CustomPainter {
     final dayStart = day;
     final dayEnd = day.add(const Duration(days: 1));
     final paint = Paint()..color = color;
-    for (final rec in records) {
-      final s = rec.startAt.isBefore(dayStart) ? dayStart : rec.startAt;
-      final e = rec.endAt.isAfter(dayEnd) ? dayEnd : rec.endAt;
+    for (final seg in segments) {
+      final s = seg.start.isBefore(dayStart) ? dayStart : seg.start;
+      final e = seg.end.isAfter(dayEnd) ? dayEnd : seg.end;
       if (!e.isAfter(s)) continue;
       final x1 = s.difference(dayStart).inMinutes / (24 * 60) * size.width;
       final x2 = e.difference(dayStart).inMinutes / (24 * 60) * size.width;
@@ -285,7 +297,67 @@ class _DayBarPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_DayBarPainter old) => old.records != records;
+  bool shouldRepaint(_DayBarPainter old) => old.segments != segments;
+}
+
+/// 자정 경계로 쪼갠 수면 한 조각. 원본 [record]를 그대로 들고 있어
+/// (수정/삭제는 원본 레코드 단위로 동작한다) 같은 원본이 두 날짜에 나뉘어도
+/// 어느 세그먼트에서든 편집하면 원본 하나를 수정한다.
+class SleepSegment {
+  const SleepSegment({
+    required this.record,
+    required this.day,
+    required this.start,
+    required this.end,
+  });
+
+  final SleepRecord record;
+
+  /// 이 세그먼트가 속한 캘린더 날짜(자정).
+  final DateTime day;
+
+  /// 이 날짜 안으로 잘린 세그먼트의 시작/끝. 항상 [day, day+1] 안에 든다.
+  final DateTime start;
+  final DateTime end;
+
+  Duration get duration => end.difference(start);
+}
+
+/// 한 수면 레코드를 지나는 각 캘린더 날짜별 세그먼트로 쪼갠다.
+/// - 같은 날 안에서 끝나면 1개.
+/// - 저녁→새벽처럼 자정을 넘기면 (시작일 …~24:00) + (다음날 00:00~…)로 2개 이상.
+/// 보통 1~2개지만 여러 날에 걸쳐도 일반화되어 동작한다.
+List<SleepSegment> splitSleepByDay(SleepRecord record) {
+  final segments = <SleepSegment>[];
+  var day = DateTime(
+    record.startAt.year,
+    record.startAt.month,
+    record.startAt.day,
+  );
+  while (true) {
+    final nextDay = day.add(const Duration(days: 1));
+    final segStart = record.startAt.isAfter(day) ? record.startAt : day;
+    final segEnd = record.endAt.isBefore(nextDay) ? record.endAt : nextDay;
+    if (segEnd.isAfter(segStart)) {
+      segments.add(
+        SleepSegment(record: record, day: day, start: segStart, end: segEnd),
+      );
+    }
+    if (!record.endAt.isAfter(nextDay)) break;
+    day = nextDay;
+  }
+  // 방어적: 길이 0이거나 역전된 레코드는 시작일 세그먼트 하나로 남긴다.
+  if (segments.isEmpty) {
+    segments.add(
+      SleepSegment(
+        record: record,
+        day: day,
+        start: record.startAt,
+        end: record.endAt,
+      ),
+    );
+  }
+  return segments;
 }
 
 class _NewSleep {
@@ -404,6 +476,12 @@ class _AddSleepSheetState extends State<_AddSleepSheet> {
 
 String _fmtTime(DateTime d) =>
     '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
+
+/// 세그먼트 끝이 다음날 자정(경계)이면 "00:00" 대신 "24:00"으로 보여준다.
+String _fmtSegEnd(SleepSegment seg) {
+  final nextDay = seg.day.add(const Duration(days: 1));
+  return seg.end.isBefore(nextDay) ? _fmtTime(seg.end) : '24:00';
+}
 
 String _fmtDateTime(DateTime d) => '${d.month}.${d.day} ${_fmtTime(d)}';
 
