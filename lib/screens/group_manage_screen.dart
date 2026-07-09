@@ -86,7 +86,7 @@ class GroupManageScreen extends StatelessWidget {
                     .map(
                       (m) => _MemberTile(
                         membership: m,
-                        canRemove: _isAdmin && m.userId != myMembership.userId,
+                        canManage: _isAdmin && m.userId != myMembership.userId,
                       ),
                     )
                     .toList(),
@@ -233,12 +233,34 @@ class _PendingTile extends StatelessWidget {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.membership, this.canRemove = false});
+  const _MemberTile({required this.membership, this.canManage = false});
 
   final Membership membership;
 
-  /// 관리자가 이 구성원을 내보낼 수 있는지(본인 제외). 규칙도 isGroupAdmin을 강제한다.
-  final bool canRemove;
+  /// 관리자가 이 구성원을 관리(역할 지정·내보내기)할 수 있는지(본인 제외).
+  /// 규칙도 isGroupAdmin을 강제한다.
+  final bool canManage;
+
+  Future<void> _editRole(BuildContext context) async {
+    final repo = AppScope.of(context).membershipRepository;
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await showDialog<_RoleAssignment>(
+      context: context,
+      builder: (_) => _MemberRoleDialog(membership: membership),
+    );
+    if (result == null) return;
+    try {
+      await repo.updateRole(
+        membershipId: membership.id,
+        role: result.role,
+        relationLabel: result.relationLabel,
+        isAdmin: result.isAdmin,
+      );
+      messenger.showSnackBar(const SnackBar(content: Text('역할을 지정했어요.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('역할 지정에 실패했어요.')));
+    }
+  }
 
   Future<void> _remove(BuildContext context, String displayName) async {
     final repo = AppScope.of(context).membershipRepository;
@@ -292,16 +314,111 @@ class _MemberTile extends StatelessWidget {
             leading: const CircleAvatar(child: Icon(Icons.person)),
             title: Text(display),
             subtitle: Text(roleText),
-            trailing: canRemove
-                ? IconButton(
-                    tooltip: '내보내기',
-                    icon: const Icon(Icons.person_remove_outlined),
-                    onPressed: () => _remove(context, display),
+            trailing: canManage
+                ? PopupMenuButton<String>(
+                    onSelected: (v) => switch (v) {
+                      'role' => _editRole(context),
+                      'remove' => _remove(context, display),
+                      _ => null,
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(value: 'role', child: Text('역할 지정')),
+                      PopupMenuItem(value: 'remove', child: Text('내보내기')),
+                    ],
                   )
                 : null,
           );
         },
       ),
+    );
+  }
+}
+
+/// 역할 지정 다이얼로그 결과.
+class _RoleAssignment {
+  const _RoleAssignment({
+    required this.role,
+    this.relationLabel,
+    required this.isAdmin,
+  });
+
+  final MemberRole role;
+  final String? relationLabel;
+  final bool isAdmin;
+}
+
+/// 관리자가 구성원의 역할(부모/친척)·호칭·관리자 여부를 지정하는 다이얼로그.
+class _MemberRoleDialog extends StatefulWidget {
+  const _MemberRoleDialog({required this.membership});
+
+  final Membership membership;
+
+  @override
+  State<_MemberRoleDialog> createState() => _MemberRoleDialogState();
+}
+
+class _MemberRoleDialogState extends State<_MemberRoleDialog> {
+  late MemberRole _role = widget.membership.role;
+  late bool _isAdmin = widget.membership.isAdmin;
+  late final TextEditingController _label = TextEditingController(
+    text: widget.membership.relationLabel ?? '',
+  );
+
+  @override
+  void dispose() {
+    _label.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final label = _label.text.trim();
+    Navigator.pop(
+      context,
+      _RoleAssignment(
+        role: _role,
+        relationLabel: label.isEmpty ? null : label,
+        isAdmin: _isAdmin,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('역할 지정'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SegmentedButton<MemberRole>(
+            segments: const [
+              ButtonSegment(value: MemberRole.parent, label: Text('부모')),
+              ButtonSegment(value: MemberRole.relative, label: Text('친척')),
+            ],
+            selected: {_role},
+            onSelectionChanged: (s) => setState(() => _role = s.first),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _label,
+            decoration: const InputDecoration(labelText: '호칭 (선택, 예: 이모/삼촌)'),
+          ),
+          const SizedBox(height: 4),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('관리자 권한'),
+            value: _isAdmin,
+            onChanged: (v) => setState(() => _isAdmin = v),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('취소'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('저장')),
+      ],
     );
   }
 }
