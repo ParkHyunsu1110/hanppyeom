@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_scope.dart';
 import '../models/child.dart';
 import '../models/membership.dart';
-import '../services/auth/reauth_service.dart';
 import '../services/security/rrn_cipher.dart';
 
 /// 아이 정보 카드. 생년월일/성별/혈액형/특이사항 표시·수정(부모).
 ///
 /// 주민등록번호(RRN)는 민감정보라 평문/마스킹을 Firestore에 저장하지 않고
 /// [RrnCipher]로 암호화한 암호문만 저장한다(부부 동기화). 평소엔 마스킹 표시,
-/// 전체 노출은 재인증 후 복호화로만 한다.
+/// 전체 노출은 부모만 가능(부모 기기·계정 한정이라 별도 재인증은 두지 않는다).
 class ChildInfoScreen extends StatelessWidget {
   const ChildInfoScreen({
     super.key,
@@ -128,18 +128,12 @@ class _RrnRow extends StatelessWidget {
   String _formatted(String digits) =>
       '${digits.substring(0, 6)}-${digits.substring(6)}';
 
+  // 전체 보기는 부모(canEdit)에게만 노출되고 본인 로그인 기기에서만 접근하므로,
+  // 별도 재인증 없이 바로 복호화해 보여준다(사용자 결정으로 재인증 마찰 제거).
   Future<void> _reveal(BuildContext context) async {
     final messenger = ScaffoldMessenger.of(context);
     final encrypted = child.rrnEncrypted;
     if (encrypted == null) return;
-    final ok = await ReauthService().authenticate(
-      reason: '주민등록번호 확인을 위해 인증해 주세요.',
-    );
-    if (!context.mounted) return;
-    if (!ok) {
-      messenger.showSnackBar(const SnackBar(content: Text('인증에 실패했어요.')));
-      return;
-    }
     String digits;
     try {
       digits = RrnCipher.decryptRrn(encrypted);
@@ -147,6 +141,7 @@ class _RrnRow extends StatelessWidget {
       messenger.showSnackBar(const SnackBar(content: Text('복호화에 실패했어요.')));
       return;
     }
+    if (!context.mounted) return;
     await showDialog<void>(
       context: context,
       builder: (context) => AlertDialog(
@@ -286,6 +281,26 @@ class _RrnRow extends StatelessWidget {
   }
 }
 
+/// 입력 중 숫자만 남겨 13자리로 제한하고, 6자리 뒤에 하이픈을 자동으로 넣는다.
+/// (000101-3000000 형식)
+class _RrnInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var digits = newValue.text.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 13) digits = digits.substring(0, 13);
+    final text = digits.length > 6
+        ? '${digits.substring(0, 6)}-${digits.substring(6)}'
+        : digits;
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
+}
+
 /// 주민번호 입력 다이얼로그. 하이픈 입력을 허용하되 숫자 13자리만 통과시킨다.
 class _RrnEditDialog extends StatefulWidget {
   const _RrnEditDialog({required this.isEdit});
@@ -322,9 +337,10 @@ class _RrnEditDialogState extends State<_RrnEditDialog> {
           controller: _controller,
           keyboardType: TextInputType.number,
           autofocus: true,
+          inputFormatters: [_RrnInputFormatter()],
           decoration: const InputDecoration(
             labelText: '주민등록번호',
-            hintText: '앞 6자리-뒤 7자리',
+            hintText: '000101-3000000',
           ),
           validator: (v) {
             final digits = (v ?? '').replaceAll(RegExp(r'\D'), '');
