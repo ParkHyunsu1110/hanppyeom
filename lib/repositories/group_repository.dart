@@ -92,6 +92,11 @@ class GroupRepository {
   Future<void> updateChild(String groupId, Child child) =>
       _children.doc(groupId).set(child.toMap());
 
+  /// 주민등록번호 암호문만 갱신(부모). 삭제는 [encrypted]에 null을 넘긴다.
+  /// copyWith로는 null을 넣을 수 없어 이 메서드로 처리한다. 평문은 절대 넣지 않는다.
+  Future<void> updateRrn(String groupId, String? encrypted) =>
+      _children.doc(groupId).update({'rrnEncrypted': encrypted});
+
   Future<FamilyGroup?> getGroup(String groupId) async {
     final snap = await _groups.doc(groupId).get();
     if (!snap.exists) return null;

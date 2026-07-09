@@ -18,8 +18,8 @@ enum Sex {
 
 /// 아이. Firestore `children/{childId}` 문서. 아이 1명당 그룹 1개([FamilyGroup]).
 ///
-/// 주민등록번호는 평문/마스킹을 절대 저장하지 않고 [rrnEncrypted](암호문)만 둔다.
-/// 전체 값은 재인증 후 별도 함수로만 복호화한다(일반 조회 쿼리에 싣지 않음).
+/// 주민등록번호(RRN)는 평문/마스킹을 절대 저장하지 않고 [rrnEncrypted](암호문)만 둔다.
+/// 전체 값은 재인증 후 [RrnCipher]로만 복호화한다(일반 조회 쿼리에 평문을 싣지 않음).
 class Child {
   const Child({
     required this.id,
