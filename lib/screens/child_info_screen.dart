@@ -275,20 +275,6 @@ class _RrnRow extends StatelessWidget {
   final Child child;
   final bool canEdit;
 
-  /// 복호화 없이 생년월일·성별로 만든 마스킹. 형식 YYMMDD-G****** .
-  /// G=성별자리: 1900년대 남1/여2, 2000년대 남3/여4.
-  String _masked() {
-    final b = child.birthDate;
-    final yy = (b.year % 100).toString().padLeft(2, '0');
-    final mm = b.month.toString().padLeft(2, '0');
-    final dd = b.day.toString().padLeft(2, '0');
-    final is2000s = b.year >= 2000;
-    final g = child.sex == Sex.male
-        ? (is2000s ? '3' : '1')
-        : (is2000s ? '4' : '2');
-    return '$yy$mm$dd-$g******';
-  }
-
   Future<void> _editOrRegister(
     BuildContext context, {
     required bool isEdit,
@@ -356,15 +342,18 @@ class _RrnRow extends StatelessWidget {
           child: Builder(
             builder: (context) {
               if (hasRrn) {
+                // 마스킹·전체표기 모두 실제(복호화) 번호에서 뽑아 항상 일치한다.
+                final digits = _decryptRrn(child.rrnEncrypted!);
                 // 부모가 아니면 마스킹만 보여준다(전체 보기·수정·삭제 없음).
-                if (!canEdit) return Text(_masked());
+                if (!canEdit) {
+                  return Text(
+                    digits != null ? _maskRrn(digits) : _rrnFallbackMask,
+                  );
+                }
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _RrnHoldReveal(
-                      masked: _masked(),
-                      encrypted: child.rrnEncrypted!,
-                    ),
+                    _RrnHoldReveal(encrypted: child.rrnEncrypted!),
                     Wrap(
                       spacing: 8,
                       children: [
@@ -410,15 +399,36 @@ class _RrnRow extends StatelessWidget {
   }
 }
 
+/// 저장된 암호문을 복호화한다. 실패하거나 13자리가 아니면 null.
+String? _decryptRrn(String encrypted) {
+  try {
+    final digits = RrnCipher.decryptRrn(encrypted);
+    return digits.length == 13 ? digits : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 실제 번호의 뒤 6자리만 가린 마스킹: XXXXXX-G****** (생년월일·성별 재구성이
+/// 아니라 실제 값에서 뽑으므로 전체 표기와 항상 일치한다).
+String _maskRrn(String digits) =>
+    '${digits.substring(0, 6)}-${digits.substring(6, 7)}******';
+
+/// 전체 표기: XXXXXX-XXXXXXX .
+String _formatRrn(String digits) =>
+    '${digits.substring(0, 6)}-${digits.substring(6)}';
+
+/// 복호화 실패/미등록 시 표시할 기본 마스킹.
+const String _rrnFallbackMask = '******-*******';
+
 /// 주민번호 "꾹 눌러 보기". 누르고 있는 동안에만 전체 번호를 인라인으로 보여주고
 /// 떼면 다시 마스킹으로 돌아간다(부모 전용). 다이얼로그 대신 마찰 없는 열람.
 ///
-/// 전체 값은 [RrnCipher.decryptRrn]로 즉시 복호화한다(부모·본인 기기 한정이라
-/// 별도 재인증은 두지 않는다). 복호화 실패 시 조용히 마스킹을 유지한다.
+/// 마스킹·전체 표기 모두 [RrnCipher.decryptRrn]로 복호화한 실제 값에서 뽑는다
+/// (부모·본인 기기 한정이라 별도 재인증은 두지 않는다). 복호화 실패 시 기본 마스킹.
 class _RrnHoldReveal extends StatefulWidget {
-  const _RrnHoldReveal({required this.masked, required this.encrypted});
+  const _RrnHoldReveal({required this.encrypted});
 
-  final String masked;
   final String encrypted;
 
   @override
@@ -428,21 +438,7 @@ class _RrnHoldReveal extends StatefulWidget {
 class _RrnHoldRevealState extends State<_RrnHoldReveal> {
   bool _revealed = false;
 
-  /// 전체 표기: XXXXXX-XXXXXXX. 복호화 실패면 null(마스킹 유지).
-  String? _decryptedFormatted() {
-    try {
-      final digits = RrnCipher.decryptRrn(widget.encrypted);
-      return '${digits.substring(0, 6)}-${digits.substring(6)}';
-    } catch (_) {
-      return null;
-    }
-  }
-
-  void _reveal() {
-    // 누르는 순간 복호화를 시도해 실패하면 마스킹을 유지한다.
-    if (_decryptedFormatted() == null) return;
-    setState(() => _revealed = true);
-  }
+  void _reveal() => setState(() => _revealed = true);
 
   void _hide() {
     if (_revealed) setState(() => _revealed = false);
@@ -450,12 +446,15 @@ class _RrnHoldRevealState extends State<_RrnHoldReveal> {
 
   @override
   Widget build(BuildContext context) {
-    final full = _revealed ? _decryptedFormatted() : null;
+    final digits = _decryptRrn(widget.encrypted);
+    final text = digits == null
+        ? _rrnFallbackMask
+        : (_revealed ? _formatRrn(digits) : _maskRrn(digits));
     final primary = Theme.of(context).colorScheme.primary;
     // 주민번호 값 옆에 "꾹 눌러 보기"를 둔다(누르는 동안만 전체 표시).
     return Row(
       children: [
-        Flexible(child: Text(full ?? widget.masked)),
+        Flexible(child: Text(text)),
         const SizedBox(width: 8),
         GestureDetector(
           onTapDown: (_) => _reveal(),
