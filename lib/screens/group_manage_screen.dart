@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../app_scope.dart';
 import '../models/child.dart';
@@ -129,6 +130,12 @@ class _InviteCodeCard extends StatelessWidget {
     }
   }
 
+  Future<void> _copyCode(BuildContext context, String code) async {
+    final messenger = ScaffoldMessenger.of(context);
+    await Clipboard.setData(ClipboardData(text: code));
+    messenger.showSnackBar(const SnackBar(content: Text('초대 코드를 복사했어요.')));
+  }
+
   @override
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
@@ -144,12 +151,26 @@ class _InviteCodeCard extends StatelessWidget {
               stream: scope.groupRepository.watchGroup(groupId),
               builder: (context, snapshot) {
                 final code = snapshot.data?.inviteCode;
-                return Text(
-                  code ?? '…',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.bold,
-                  ),
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        code ?? '…',
+                        style: Theme.of(context).textTheme.headlineSmall
+                            ?.copyWith(
+                              letterSpacing: 4,
+                              fontWeight: FontWeight.bold,
+                            ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: '초대 코드 복사',
+                      icon: const Icon(Icons.copy),
+                      onPressed: code == null
+                          ? null
+                          : () => _copyCode(context, code),
+                    ),
+                  ],
                 );
               },
             ),

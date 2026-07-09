@@ -50,4 +50,14 @@ class GrowthReferenceTable {
     }
     return best;
   }
+
+  /// (sex, type)의 전체 기준 곡선 데이터를 ageMonths 오름차순으로 반환한다.
+  /// 매칭되는 값이 없으면 빈 리스트(예: 데이터 범위 밖 유형).
+  List<GrowthReference> curve({required Sex sex, required GrowthType type}) {
+    final list = _entries
+        .where((e) => e.sex == sex && e.type == type)
+        .toList(growable: false);
+    list.sort((a, b) => a.ageMonths.compareTo(b.ageMonths));
+    return list;
+  }
 }

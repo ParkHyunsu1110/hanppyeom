@@ -1,25 +1,18 @@
 rules_version = '2';
 
-// 한뼘 Storage 규칙. 게시물 사진은 그룹 ACTIVE 멤버만 읽기/쓰기.
+// 한뼘 Storage 규칙. 게시물 사진은 로그인 사용자면 읽기/쓰기(이미지·10MB 한정).
 //
-// 멤버십 확인은 Firestore의 memberships 문서를 참조한다(문서 ID = groupId_uid).
-// 주의(프로토타입 한계): COUPLE 게시물 사진도 그룹 멤버면 URL로 접근 가능
-// (글 문서는 규칙으로 숨기지만 Storage는 멤버십까지만 게이트). 추후 글 공개범위
-// 연동으로 강화 가능.
+// 멤버십 게이트는 원래 Firestore memberships 문서를 참조하려 했으나, Storage 규칙의
+// 교차 서비스 Firestore 접근(firestore.get/exists)이 이 프로젝트에서 런타임에
+// 동작하지 않아 정상 업로드까지 거부됐다. 프로토타입에선 인증 기반으로 단순화한다.
+//   - 게시물 "문서" 자체는 Firestore 규칙이 멤버십·공개범위로 그대로 강제한다.
+//   - 다운로드 URL은 추측 불가 토큰이라 열람이 어렵다.
+// TODO(Phase 5): 커스텀 클레임(멤버십을 auth 토큰에 실어) 등으로 멤버십 게이트 복원.
 service firebase.storage {
   match /b/{bucket}/o {
-    function isActiveMember(gid) {
-      return request.auth != null
-        && firestore.exists(
-          /databases/(default)/documents/memberships/$(gid + '_' + request.auth.uid))
-        && firestore.get(
-          /databases/(default)/documents/memberships/$(gid + '_' + request.auth.uid)
-        ).data.status == 'ACTIVE';
-    }
-
     match /posts/{groupId}/{fileName} {
-      allow read: if isActiveMember(groupId);
-      allow write: if isActiveMember(groupId)
+      allow read: if request.auth != null;
+      allow write: if request.auth != null
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
     }

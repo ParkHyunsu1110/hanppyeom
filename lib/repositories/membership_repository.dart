@@ -35,7 +35,21 @@ class MembershipRepository {
     final membershipId = Membership.docId(groupId, uid);
     final ref = _memberships.doc(membershipId);
 
-    if ((await ref.get()).exists) {
+    // 존재 확인. 문서 ID가 `{groupId}_{uid}`라 존재한다면 항상 본인 문서이므로
+    // 멤버십 read 규칙(본인 문서)에 걸려 읽힌다. 반대로 아직 없는 문서를 get하면
+    // 규칙이 resource(null)를 평가하다 permission-denied를 내므로, 그 경우는
+    // "미존재"로 간주하고 참여 생성을 진행한다.
+    bool alreadyJoined;
+    try {
+      alreadyJoined = (await ref.get()).exists;
+    } on FirebaseException catch (e) {
+      if (e.code == 'permission-denied') {
+        alreadyJoined = false;
+      } else {
+        rethrow;
+      }
+    }
+    if (alreadyJoined) {
       throw AlreadyJoinedException(groupId);
     }
 

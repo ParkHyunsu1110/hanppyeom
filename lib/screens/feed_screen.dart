@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -70,16 +70,18 @@ class FeedScreen extends StatelessWidget {
       builder: (_) => _ComposeSheet(canCouple: _isParent),
     );
     if (result == null) return;
-    if (result.photoPaths.isNotEmpty) {
+    if (result.photos.isNotEmpty) {
       messenger.showSnackBar(const SnackBar(content: Text('사진을 올리는 중…')));
     }
     try {
       final urls = <String>[];
-      for (final path in result.photoPaths) {
+      for (final photo in result.photos) {
         urls.add(
           await scope.storageRepository.uploadPostPhoto(
             groupId: _groupId,
-            localPath: path,
+            bytes: photo.bytes,
+            contentType: photo.contentType,
+            extension: photo.extension,
           ),
         );
       }
@@ -353,10 +355,66 @@ class _CommentsSheetState extends State<_CommentsSheet> {
 }
 
 class _NewPost {
-  const _NewPost(this.caption, this.visibility, this.photoPaths);
+  const _NewPost(this.caption, this.visibility, this.photos);
   final String caption;
   final PostVisibility visibility;
-  final List<String> photoPaths;
+  final List<_PickedPhoto> photos;
+}
+
+/// 웹·모바일 공용으로 다루는 첨부 사진(바이트 + 업로드 메타).
+class _PickedPhoto {
+  const _PickedPhoto({
+    required this.bytes,
+    required this.contentType,
+    required this.extension,
+  });
+
+  final Uint8List bytes;
+  final String contentType;
+  final String extension;
+}
+
+/// 파일명/경로에서 소문자 확장자(점 제외)를 뽑는다. 없으면 빈 문자열.
+String _extensionOf(String nameOrPath) {
+  final dot = nameOrPath.lastIndexOf('.');
+  if (dot == -1 || dot == nameOrPath.length - 1) return '';
+  final ext = nameOrPath.substring(dot + 1).toLowerCase();
+  return ext.length <= 4 ? ext : '';
+}
+
+/// 확장자로부터 Storage 규칙(image/.*)을 통과할 contentType을 정한다.
+String _contentTypeForExtension(String ext) {
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    case 'heic':
+      return 'image/heic';
+    default:
+      return 'image/jpeg';
+  }
+}
+
+/// contentType으로부터 저장 파일명에 쓸 확장자를 정한다.
+String _extensionForContentType(String contentType) {
+  switch (contentType) {
+    case 'image/png':
+      return 'png';
+    case 'image/gif':
+      return 'gif';
+    case 'image/webp':
+      return 'webp';
+    case 'image/heic':
+      return 'heic';
+    default:
+      return 'jpg';
+  }
 }
 
 class _ComposeSheet extends StatefulWidget {
@@ -371,9 +429,10 @@ class _ComposeSheet extends StatefulWidget {
 class _ComposeSheetState extends State<_ComposeSheet> {
   final _controller = TextEditingController();
   final _picker = ImagePicker();
-  final List<XFile> _photos = [];
+  final List<_PickedPhoto> _photos = [];
   PostVisibility _visibility = PostVisibility.family;
   static const _maxPhotos = 4;
+  static const _maxBytes = 10 * 1024 * 1024; // Storage 규칙: 10MB 미만
 
   @override
   void dispose() {
@@ -382,23 +441,55 @@ class _ComposeSheetState extends State<_ComposeSheet> {
   }
 
   Future<void> _pickPhotos() async {
-    final picked = await _picker.pickMultiImage(limit: _maxPhotos);
+    final messenger = ScaffoldMessenger.of(context);
+    // 화질을 낮춰 재인코딩하면 원본 대비 용량이 크게 줄고(10MB 규칙 대비),
+    // iOS HEIC 원본도 JPEG로 변환돼 미리보기·업로드가 안정적이다.
+    final picked = await _picker.pickMultiImage(
+      limit: _maxPhotos,
+      imageQuality: 85,
+    );
     if (picked.isEmpty) return;
-    setState(() {
-      for (final x in picked) {
-        if (_photos.length >= _maxPhotos) break;
-        _photos.add(x);
+    final loaded = <_PickedPhoto>[];
+    var skipped = false;
+    for (final x in picked) {
+      if (_photos.length + loaded.length >= _maxPhotos) break;
+      try {
+        // 웹에서도 안전하게 바이트로 읽어 미리보기·업로드에 함께 쓴다.
+        final bytes = await x.readAsBytes();
+        if (bytes.lengthInBytes >= _maxBytes) {
+          skipped = true;
+          continue;
+        }
+        final ext = _extensionOf(x.name.isNotEmpty ? x.name : x.path);
+        // mimeType가 있으면 우선, 없으면 확장자로 contentType을 정한다.
+        final contentType = x.mimeType ?? _contentTypeForExtension(ext);
+        final storageExt = ext.isNotEmpty
+            ? ext
+            : _extensionForContentType(contentType);
+        loaded.add(
+          _PickedPhoto(
+            bytes: bytes,
+            contentType: contentType,
+            extension: storageExt,
+          ),
+        );
+      } catch (_) {
+        skipped = true;
       }
-    });
+    }
+    if (!mounted) return;
+    if (loaded.isNotEmpty) setState(() => _photos.addAll(loaded));
+    if (skipped) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('일부 사진은 용량이 크거나 열 수 없어 제외했어요. (최대 10MB)')),
+      );
+    }
   }
 
   void _submit() {
     final text = _controller.text.trim();
     if (text.isEmpty && _photos.isEmpty) return;
-    Navigator.pop(
-      context,
-      _NewPost(text, _visibility, _photos.map((x) => x.path).toList()),
-    );
+    Navigator.pop(context, _NewPost(text, _visibility, List.of(_photos)));
   }
 
   @override
@@ -463,11 +554,19 @@ class _ComposeSheetState extends State<_ComposeSheet> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(_photos[i].path),
+                      child: Image.memory(
+                        _photos[i].bytes,
                         width: 80,
                         height: 80,
                         fit: BoxFit.cover,
+                        errorBuilder: (context, _, _) => Container(
+                          width: 80,
+                          height: 80,
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.surfaceContainerHighest,
+                          child: const Icon(Icons.broken_image),
+                        ),
                       ),
                     ),
                     Positioned(

@@ -59,3 +59,22 @@ double lmsPercentile({
 /// [GrowthReference]를 이용한 백분위 계산 편의 함수.
 double percentileFor(GrowthReference ref, double value) =>
     lmsPercentile(value: value, l: ref.l, m: ref.m, s: ref.s);
+
+/// LMS 역변환: 목표 Z 점수에 해당하는 측정값을 구한다(기준 백분위 곡선용).
+///
+/// L=0: X = M·exp(S·z), L≠0: X = M·(1 + L·S·z)^(1/L).
+double lmsValueForZ({
+  required double l,
+  required double m,
+  required double s,
+  required double z,
+}) {
+  if (l == 0) {
+    return m * math.exp(s * z);
+  }
+  // L≠0에서 밑(1+L·S·z)이 0 이하이면 실수 거듭제곱이 정의되지 않는다. 정상 LMS·
+  // 상용 백분위(P3~P97) 범위에선 발생하지 않지만, 비정상 기준행 방어로 NaN을 반환한다.
+  final base = 1 + l * s * z;
+  if (base <= 0) return double.nan;
+  return m * math.pow(base, 1 / l);
+}
