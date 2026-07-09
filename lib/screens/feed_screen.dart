@@ -288,30 +288,67 @@ class _PostCard extends StatelessWidget {
   }
 }
 
-class _PostPhotos extends StatelessWidget {
+class _PostPhotos extends StatefulWidget {
   const _PostPhotos({required this.urls});
 
   final List<String> urls;
 
   @override
+  State<_PostPhotos> createState() => _PostPhotosState();
+}
+
+class _PostPhotosState extends State<_PostPhotos> {
+  static const double _height = 220;
+  final _pageController = PageController();
+  int _page = 0;
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final urls = widget.urls;
     if (urls.length == 1) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(12),
-        child: _photo(urls.first, double.infinity, 220),
+        child: _photo(urls.first, double.infinity, _height),
       );
     }
-    return SizedBox(
-      height: 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: urls.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, i) => ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: _photo(urls[i], 160, 160),
+    final scheme = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        SizedBox(
+          height: _height,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: urls.length,
+            onPageChanged: (i) => setState(() => _page = i),
+            itemBuilder: (context, i) => ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: _photo(urls[i], double.infinity, _height),
+            ),
+          ),
         ),
-      ),
+        const SizedBox(height: 8),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < urls.length; i++)
+              Container(
+                width: 6,
+                height: 6,
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: i == _page ? scheme.primary : scheme.outlineVariant,
+                ),
+              ),
+          ],
+        ),
+      ],
     );
   }
 

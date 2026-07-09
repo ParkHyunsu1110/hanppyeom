@@ -70,6 +70,19 @@ class MembershipRepository {
       .doc(membershipId)
       .update({'status': MembershipStatus.active.wire});
 
+  /// 관리자가 구성원의 역할/호칭/관리자 여부를 지정한다.
+  /// groupId·userId·status는 건드리지 않는다(규칙의 불변 조건과 일치).
+  Future<void> updateRole({
+    required String membershipId,
+    required MemberRole role,
+    String? relationLabel,
+    required bool isAdmin,
+  }) => _memberships.doc(membershipId).update({
+    'role': role.wire,
+    'relationLabel': relationLabel,
+    'isAdmin': isAdmin,
+  });
+
   /// 관리자가 거절/제거하거나, 본인이 탈퇴한다.
   Future<void> remove(String membershipId) =>
       _memberships.doc(membershipId).delete();

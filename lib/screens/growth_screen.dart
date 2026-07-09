@@ -226,87 +226,120 @@ class _GrowthBody extends StatelessWidget {
       }
     }
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
+    return Column(
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '최근 측정',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_trim(latest.value)} $unit',
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
-                const Spacer(),
-                if (percentileText != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.primaryContainer,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      percentileText,
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: scheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '최근 측정',
+                            style: Theme.of(context).textTheme.labelMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${_trim(latest.value)} $unit',
+                            style: Theme.of(context).textTheme.headlineMedium
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ],
                       ),
-                    ),
-                  )
-                else
-                  Text(
-                    '백분위는 기준표 탑재 후 제공',
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 260,
-          child: _Chart(
-            records: records,
-            child: child,
-            type: type,
-            table: table,
-          ),
-        ),
-        const SizedBox(height: 16),
-        ...records.reversed.map(
-          (r) => ListTile(
-            dense: true,
-            leading: const Icon(Icons.straighten),
-            title: Text('${_trim(r.value)} $unit'),
-            subtitle: Text(_fmtDate(r.date)),
-            trailing: canEdit
-                ? PopupMenuButton<String>(
-                    onSelected: (v) => switch (v) {
-                      'edit' => _edit(context, r),
-                      'delete' => _delete(context, r),
-                      _ => null,
-                    },
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(value: 'edit', child: Text('수정')),
-                      PopupMenuItem(value: 'delete', child: Text('삭제')),
+                      const Spacer(),
+                      if (percentileText != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: scheme.primaryContainer,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            percentileText,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: scheme.onPrimaryContainer,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                        )
+                      else
+                        Text(
+                          '백분위는 기준표 탑재 후 제공',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
                     ],
-                  )
-                : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 260,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    // 뷰포트에 약 10개 측정점이 보이도록 폭을 잡고, 그보다 많으면
+                    // 그래프 안에서 가로 스크롤한다(reverse: 최신이 먼저 보임).
+                    final width = math.max(
+                      constraints.maxWidth,
+                      records.length * (constraints.maxWidth / 10),
+                    );
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      reverse: true,
+                      child: SizedBox(
+                        width: width,
+                        child: _Chart(
+                          records: records,
+                          child: child,
+                          type: type,
+                          table: table,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+        const Divider(height: 1),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
+            children: [
+              ...records.reversed.map(
+                (r) => ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.straighten),
+                  title: Text('${_trim(r.value)} $unit'),
+                  subtitle: Text(_fmtDate(r.date)),
+                  trailing: canEdit
+                      ? PopupMenuButton<String>(
+                          onSelected: (v) => switch (v) {
+                            'edit' => _edit(context, r),
+                            'delete' => _delete(context, r),
+                            _ => null,
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'edit', child: Text('수정')),
+                            PopupMenuItem(value: 'delete', child: Text('삭제')),
+                          ],
+                        )
+                      : null,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -340,11 +373,22 @@ class _Chart extends StatelessWidget {
   ];
 
   /// 기준 커브의 각 나이에서 목표 Z의 값을 계산한 스팟. NaN(정의 안 되는 밑)은 제외.
-  static List<FlSpot> _refSpots(List<GrowthReference> curve, double z) {
+  ///
+  /// [minAge]~[maxAge] 창(개월) 안의 나이만 포함한다. 커브는 0~240개월(20세)까지
+  /// 뻗어 있어 전체를 스팟으로 넣으면 fl_chart의 Y 자동범위가 성인 값까지 잡혀
+  /// 아이 나이대 범위가 과하게 눌린다. 창 밖을 잘라 Y 범위를 아이 나이대로 제한한다.
+  static List<FlSpot> _refSpots(
+    List<GrowthReference> curve,
+    double z, {
+    required double minAge,
+    required double maxAge,
+  }) {
     final spots = <FlSpot>[];
     for (final ref in curve) {
+      final age = ref.ageMonths.toDouble();
+      if (age < minAge || age > maxAge) continue;
       final v = lmsValueForZ(l: ref.l, m: ref.m, s: ref.s, z: z);
-      if (!v.isNaN) spots.add(FlSpot(ref.ageMonths.toDouble(), v));
+      if (!v.isNaN) spots.add(FlSpot(age, v));
     }
     return spots;
   }
@@ -365,13 +409,24 @@ class _Chart extends StatelessWidget {
         ? const <GrowthReference>[]
         : table.curve(sex: child.sex, type: type);
 
+    // X축은 아이 데이터 주변 나이(개월) 창으로 제한한다. 기준 곡선이 0~240개월
+    // 전체로 뻗어 아이 측정점이 눌려 보이는 문제를 막는다(fl_chart가 창 밖을 클립).
+    // refBars보다 먼저 계산해, 기준 스팟도 이 창 안의 나이만 담아 Y 자동범위를
+    // 아이 나이대로 제한한다.
+    final childXs = [for (final s in childSpots) s.x];
+    final childMin = childXs.reduce(math.min);
+    final childMax = childXs.reduce(math.max);
+    final pad = math.max(3.0, (childMax - childMin) * 0.25);
+    final minX = math.max(0.0, childMin - pad);
+    final maxX = childMax + pad;
+
     // 기준 곡선 5개를 얇고 옅게 배경으로 깐다(P50만 살짝 강조).
     final refColor = scheme.onSurfaceVariant;
     final refBars = <LineChartBarData>[
       if (curve.isNotEmpty)
         for (final (label, z) in _percentiles)
           LineChartBarData(
-            spots: _refSpots(curve, z),
+            spots: _refSpots(curve, z, minAge: minX, maxAge: maxX),
             isCurved: true,
             color: refColor.withValues(alpha: label == '50' ? 0.55 : 0.3),
             barWidth: label == '50' ? 1.5 : 1,
@@ -387,14 +442,6 @@ class _Chart extends StatelessWidget {
       dotData: const FlDotData(show: true),
     );
 
-    // X축은 아이 데이터 주변 나이(개월) 창으로 제한한다. 기준 곡선이 0~240개월
-    // 전체로 뻗어 아이 측정점이 눌려 보이는 문제를 막는다(fl_chart가 창 밖을 클립).
-    final childXs = [for (final s in childSpots) s.x];
-    final childMin = childXs.reduce(math.min);
-    final childMax = childXs.reduce(math.max);
-    final pad = math.max(3.0, (childMax - childMin) * 0.25);
-    final minX = math.max(0.0, childMin - pad);
-    final maxX = childMax + pad;
     final span = maxX - minX;
     final interval = span < 1
         ? 1.0

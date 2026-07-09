@@ -34,6 +34,24 @@ class StorageRepository {
     return ref.getDownloadURL();
   }
 
+  /// 아이 프로필 사진을 `children/{groupId}/...` 경로에 업로드하고 URL을 반환한다.
+  ///
+  /// [uploadPostPhoto]와 같은 방식(바이트 기반·contentType 명시·32비트 안전 salt).
+  /// Storage 규칙이 `contentType == image/.*` 이고 10MB 미만일 때만 허용한다.
+  Future<String> uploadChildPhoto({
+    required String groupId,
+    required Uint8List bytes,
+    required String contentType,
+    String? extension,
+  }) async {
+    final stamp = DateTime.now().millisecondsSinceEpoch;
+    final salt = _random.nextInt(1 << 30);
+    final ext = _normalizeExtension(extension);
+    final ref = _storage.ref('children/$groupId/profile_${stamp}_$salt$ext');
+    await ref.putData(bytes, SettableMetadata(contentType: contentType));
+    return ref.getDownloadURL();
+  }
+
   /// 저장 파일명에 붙일 확장자(선행 점 포함, 소문자). 비었거나 이상하면 `.jpg`.
   String _normalizeExtension(String? extension) {
     if (extension == null || extension.isEmpty) return '.jpg';

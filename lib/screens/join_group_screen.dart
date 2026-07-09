@@ -16,14 +16,45 @@ class JoinGroupScreen extends StatefulWidget {
 class _JoinGroupScreenState extends State<JoinGroupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _codeController = TextEditingController();
-  final _relationController = TextEditingController();
+  final _customRelationController = TextEditingController();
   bool _loading = false;
+
+  // 호칭 프리셋. 마지막 "기타"는 직접 입력을 연다.
+  static const _customValue = '__custom__';
+  static const _relationOptions = <String>[
+    '할머니',
+    '할아버지',
+    '외할머니',
+    '외할아버지',
+    '이모',
+    '이모부',
+    '고모',
+    '고모부',
+    '삼촌',
+    '외삼촌',
+    '숙모',
+    '외숙모',
+    '사촌',
+  ];
+
+  /// 선택된 드롭다운 값. null이면 미선택(선택 사항), [_customValue]면 직접 입력.
+  String? _selectedRelation;
 
   @override
   void dispose() {
     _codeController.dispose();
-    _relationController.dispose();
+    _customRelationController.dispose();
     super.dispose();
+  }
+
+  /// 드롭다운/직접 입력을 종합한 최종 호칭. 비었으면 null.
+  String? _resolvedRelationLabel() {
+    if (_selectedRelation == null) return null;
+    if (_selectedRelation == _customValue) {
+      final custom = _customRelationController.text.trim();
+      return custom.isEmpty ? null : custom;
+    }
+    return _selectedRelation;
   }
 
   Future<void> _submit() async {
@@ -38,9 +69,7 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
       await scope.membershipRepository.joinByInviteCode(
         uid: widget.uid,
         code: _codeController.text,
-        relationLabel: _relationController.text.trim().isEmpty
-            ? null
-            : _relationController.text.trim(),
+        relationLabel: _resolvedRelationLabel(),
       );
       messenger.showSnackBar(
         const SnackBar(content: Text('참여를 신청했어요. 관리자 승인을 기다려 주세요.')),
@@ -83,12 +112,29 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
                       : null,
                 ),
                 const SizedBox(height: 16),
-                TextFormField(
-                  controller: _relationController,
-                  decoration: const InputDecoration(
-                    labelText: '나의 호칭 (선택, 예: 이모/삼촌)',
-                  ),
+                DropdownButtonFormField<String>(
+                  initialValue: _selectedRelation,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: '나의 호칭 (선택)'),
+                  items: [
+                    for (final r in _relationOptions)
+                      DropdownMenuItem(value: r, child: Text(r)),
+                    const DropdownMenuItem(
+                      value: _customValue,
+                      child: Text('기타 (직접 입력)'),
+                    ),
+                  ],
+                  onChanged: (v) => setState(() => _selectedRelation = v),
                 ),
+                if (_selectedRelation == _customValue) ...[
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _customRelationController,
+                    decoration: const InputDecoration(
+                      labelText: '호칭 직접 입력 (예: 큰이모)',
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 32),
                 FilledButton(
                   onPressed: _loading ? null : _submit,

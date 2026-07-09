@@ -111,8 +111,12 @@ class _ChildTile extends StatelessWidget {
         builder: (context, snapshot) {
           final child = snapshot.data;
           final suffix = roleSuffix(membership);
+          final photoUrl = child?.photoUrl;
+          final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
           return ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.child_care)),
+            leading: hasPhoto
+                ? CircleAvatar(backgroundImage: NetworkImage(photoUrl))
+                : const CircleAvatar(child: Icon(Icons.child_care)),
             title: Text(child?.name ?? '불러오는 중…'),
             subtitle: Text(
               suffix == null

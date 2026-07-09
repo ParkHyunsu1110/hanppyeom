@@ -29,6 +29,7 @@ class Child {
     this.bloodType,
     this.rrnEncrypted,
     this.notes,
+    this.photoUrl,
   });
 
   /// 문서 ID(본문에는 저장하지 않음).
@@ -46,6 +47,9 @@ class Child {
   /// 특이사항.
   final String? notes;
 
+  /// 프로필 사진 다운로드 URL. Storage `children/{groupId}/...`에 업로드한다.
+  final String? photoUrl;
+
   factory Child.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? const <String, dynamic>{};
     return Child(
@@ -58,6 +62,7 @@ class Child {
       bloodType: data['bloodType'] as String?,
       rrnEncrypted: data['rrnEncrypted'] as String?,
       notes: data['notes'] as String?,
+      photoUrl: data['photoUrl'] as String?,
     );
   }
 
@@ -68,6 +73,7 @@ class Child {
     'bloodType': bloodType,
     'rrnEncrypted': rrnEncrypted,
     'notes': notes,
+    'photoUrl': photoUrl,
   };
 
   Child copyWith({
@@ -77,6 +83,7 @@ class Child {
     String? bloodType,
     String? rrnEncrypted,
     String? notes,
+    String? photoUrl,
   }) {
     return Child(
       id: id,
@@ -86,6 +93,7 @@ class Child {
       bloodType: bloodType ?? this.bloodType,
       rrnEncrypted: rrnEncrypted ?? this.rrnEncrypted,
       notes: notes ?? this.notes,
+      photoUrl: photoUrl ?? this.photoUrl,
     );
   }
 }
