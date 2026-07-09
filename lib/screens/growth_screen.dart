@@ -396,6 +396,7 @@ class _Chart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final unit = type == GrowthType.weight ? 'kg' : 'cm';
 
     final childSpots = [
       for (final r in records)
@@ -455,8 +456,43 @@ class _Chart extends StatelessWidget {
       LineChartData(
         minX: minX,
         maxX: maxX,
-        // 기준 곡선을 먼저 깔고 아이 선을 위에 얹는다.
+        // 기준 곡선을 먼저 깔고 아이 선을 위에 얹는다(아이 선 인덱스=refBars.length).
         lineBarsData: [...refBars, childBar],
+        // 표준 규격 범위를 옅게 채워 인지를 돕는다(P3~P97 바깥, P15~P85 안쪽).
+        betweenBarsData: curve.isEmpty
+            ? const []
+            : [
+                BetweenBarsData(
+                  fromIndex: 0,
+                  toIndex: 4,
+                  color: scheme.primary.withValues(alpha: 0.05),
+                ),
+                BetweenBarsData(
+                  fromIndex: 1,
+                  toIndex: 3,
+                  color: scheme.primary.withValues(alpha: 0.10),
+                ),
+              ],
+        // 점을 누르면 아이 값만 보여준다(기준 곡선 값은 숨김).
+        lineTouchData: LineTouchData(
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (_) => scheme.inverseSurface,
+            getTooltipItems: (touchedSpots) => [
+              for (final s in touchedSpots)
+                if (s.barIndex == refBars.length)
+                  LineTooltipItem(
+                    '${_trim(s.y)} $unit\n${s.x.toInt()}개월',
+                    TextStyle(
+                      color: scheme.onInverseSurface,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12,
+                    ),
+                  )
+                else
+                  null,
+            ],
+          ),
+        ),
         titlesData: FlTitlesData(
           topTitles: const AxisTitles(),
           rightTitles: const AxisTitles(),
@@ -474,9 +510,8 @@ class _Chart extends StatelessWidget {
               ),
             ),
           ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 40),
-          ),
+          // Y축 값 라벨은 번잡해 숨긴다(표준 범위 밴드 + 탭 툴팁으로 값 인지).
+          leftTitles: const AxisTitles(),
         ),
         gridData: const FlGridData(show: true, drawVerticalLine: false),
         borderData: FlBorderData(show: false),
