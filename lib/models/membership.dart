@@ -18,6 +18,38 @@ enum MemberRole {
   }
 }
 
+/// 관계 호칭 타입. 권한(role)과는 완전히 분리된 표시용 값이다.
+/// Firestore에는 안정적 wire 코드로 저장하고, UI에는 한글 [label]을 쓴다.
+/// [etc](기타)는 자유 입력을 허용하며, 이때 입력값은 [Membership.relationLabel]에 담는다.
+enum RelationType {
+  grandmaP('GRANDMA_P', '할머니'),
+  grandpaP('GRANDPA_P', '할아버지'),
+  grandmaM('GRANDMA_M', '외할머니'),
+  grandpaM('GRANDPA_M', '외할아버지'),
+  imo('IMO', '이모'),
+  imobu('IMOBU', '이모부'),
+  gomo('GOMO', '고모'),
+  gomobu('GOMOBU', '고모부'),
+  samchon('SAMCHON', '삼촌'),
+  oesamchon('OESAMCHON', '외삼촌'),
+  sukmo('SUKMO', '숙모'),
+  oesukmo('OESUKMO', '외숙모'),
+  sachon('SACHON', '사촌'),
+  etc('ETC', '기타');
+
+  const RelationType(this.wire, this.label);
+  final String wire;
+  final String label;
+
+  /// 알 수 없는/없는 값은 null(호칭 미지정 또는 legacy)로 폴백한다.
+  static RelationType? fromWire(String? v) {
+    for (final t in RelationType.values) {
+      if (t.wire == v) return t;
+    }
+    return null;
+  }
+}
+
 /// 멤버십 상태. PENDING은 그룹 데이터에 접근할 수 없다(초대 승인 대기).
 enum MembershipStatus {
   active('ACTIVE'),
@@ -47,6 +79,7 @@ class Membership {
     required this.role,
     required this.isAdmin,
     required this.status,
+    this.relationType,
     this.relationLabel,
   });
 
@@ -56,7 +89,12 @@ class Membership {
   final String groupId;
   final MemberRole role;
 
-  /// 관계 라벨(예: "이모", "삼촌"). UI 표시용, 권한과 무관.
+  /// 관계 호칭 타입(예: 이모, 삼촌). UI 표시용, 권한과 무관.
+  /// 없으면(null) 호칭 미지정 또는 구 데이터(legacy [relationLabel]) 이다.
+  final RelationType? relationType;
+
+  /// [RelationType.etc] 선택 시 자유 입력한 호칭 텍스트, 또는 구 데이터의
+  /// legacy 호칭 문자열. 표시 규칙은 `relationTitle`을 따른다.
   final String? relationLabel;
 
   /// 멤버 관리·코드 재발급 권한(보호자 중 관리자만).
@@ -73,6 +111,7 @@ class Membership {
       userId: data['userId'] as String? ?? '',
       groupId: data['groupId'] as String? ?? '',
       role: MemberRole.fromWire(data['role'] as String?),
+      relationType: RelationType.fromWire(data['relationType'] as String?),
       relationLabel: data['relationLabel'] as String?,
       isAdmin: data['isAdmin'] as bool? ?? false,
       status: MembershipStatus.fromWire(data['status'] as String?),
@@ -83,6 +122,7 @@ class Membership {
     'userId': userId,
     'groupId': groupId,
     'role': role.wire,
+    'relationType': relationType?.wire,
     'relationLabel': relationLabel,
     'isAdmin': isAdmin,
     'status': status.wire,
@@ -90,6 +130,7 @@ class Membership {
 
   Membership copyWith({
     MemberRole? role,
+    RelationType? relationType,
     String? relationLabel,
     bool? isAdmin,
     MembershipStatus? status,
@@ -99,6 +140,7 @@ class Membership {
       userId: userId,
       groupId: groupId,
       role: role ?? this.role,
+      relationType: relationType ?? this.relationType,
       relationLabel: relationLabel ?? this.relationLabel,
       isAdmin: isAdmin ?? this.isAdmin,
       status: status ?? this.status,

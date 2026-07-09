@@ -128,6 +128,59 @@ void main() {
       expect(back.isAdmin, isTrue);
       expect(back.status, MembershipStatus.active);
     });
+
+    test('relationType 라운드트립 (호칭은 권한과 분리)', () async {
+      final membership = Membership(
+        id: Membership.docId('g1', 'u2'),
+        userId: 'u2',
+        groupId: 'g1',
+        role: MemberRole.relative,
+        relationType: RelationType.imo,
+        isAdmin: false,
+        status: MembershipStatus.active,
+      );
+      expect(membership.toMap()['relationType'], 'IMO');
+
+      final back = Membership.fromDoc(
+        await roundTrip('memberships/g1_u2', membership.toMap()),
+      );
+      expect(back.relationType, RelationType.imo);
+      expect(back.relationLabel, isNull);
+    });
+
+    test('ETC는 customLabel(relationLabel)에 자유 입력을 담는다', () async {
+      final membership = Membership(
+        id: Membership.docId('g1', 'u3'),
+        userId: 'u3',
+        groupId: 'g1',
+        role: MemberRole.relative,
+        relationType: RelationType.etc,
+        relationLabel: '큰이모',
+        isAdmin: false,
+        status: MembershipStatus.active,
+      );
+      final back = Membership.fromDoc(
+        await roundTrip('memberships/g1_u3', membership.toMap()),
+      );
+      expect(back.relationType, RelationType.etc);
+      expect(back.relationLabel, '큰이모');
+    });
+
+    test('구 데이터(relationType 없음)는 legacy relationLabel로 폴백한다', () async {
+      // relationType 필드가 없는 구 문서.
+      final back = Membership.fromDoc(
+        await roundTrip('memberships/g1_u4', <String, dynamic>{
+          'userId': 'u4',
+          'groupId': 'g1',
+          'role': 'RELATIVE',
+          'relationLabel': '이모',
+          'isAdmin': false,
+          'status': 'ACTIVE',
+        }),
+      );
+      expect(back.relationType, isNull);
+      expect(back.relationLabel, '이모');
+    });
   });
 
   group('enum 폴백', () {
@@ -150,6 +203,13 @@ void main() {
       expect(MembershipStatus.fromWire('PENDING'), MembershipStatus.pending);
       expect(MembershipStatus.fromWire('UNKNOWN'), MembershipStatus.pending);
       expect(MembershipStatus.fromWire(null), MembershipStatus.pending);
+    });
+
+    test('RelationType은 알 수 없는/없는 값에서 null로 폴백', () {
+      expect(RelationType.fromWire('IMO'), RelationType.imo);
+      expect(RelationType.fromWire('ETC'), RelationType.etc);
+      expect(RelationType.fromWire('UNKNOWN'), isNull);
+      expect(RelationType.fromWire(null), isNull);
     });
   });
 }

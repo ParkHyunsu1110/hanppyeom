@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../app_scope.dart';
+import '../models/membership.dart';
 import '../repositories/repository_exceptions.dart';
 
 /// 초대 코드로 가족 그룹에 참여하는 화면(친척). 성공 시 승인 대기(PENDING) 상태가 된다.
@@ -19,26 +20,8 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
   final _customRelationController = TextEditingController();
   bool _loading = false;
 
-  // 호칭 프리셋. 마지막 "기타"는 직접 입력을 연다.
-  static const _customValue = '__custom__';
-  static const _relationOptions = <String>[
-    '할머니',
-    '할아버지',
-    '외할머니',
-    '외할아버지',
-    '이모',
-    '이모부',
-    '고모',
-    '고모부',
-    '삼촌',
-    '외삼촌',
-    '숙모',
-    '외숙모',
-    '사촌',
-  ];
-
-  /// 선택된 드롭다운 값. null이면 미선택(선택 사항), [_customValue]면 직접 입력.
-  String? _selectedRelation;
+  /// 선택된 호칭 타입. null이면 미선택(선택 사항). [RelationType.etc]면 직접 입력.
+  RelationType? _selectedRelation;
 
   @override
   void dispose() {
@@ -47,14 +30,11 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
     super.dispose();
   }
 
-  /// 드롭다운/직접 입력을 종합한 최종 호칭. 비었으면 null.
-  String? _resolvedRelationLabel() {
-    if (_selectedRelation == null) return null;
-    if (_selectedRelation == _customValue) {
-      final custom = _customRelationController.text.trim();
-      return custom.isEmpty ? null : custom;
-    }
-    return _selectedRelation;
+  /// [RelationType.etc] 직접 입력값. 비었으면 null.
+  String? _resolvedCustomLabel() {
+    if (_selectedRelation != RelationType.etc) return null;
+    final custom = _customRelationController.text.trim();
+    return custom.isEmpty ? null : custom;
   }
 
   Future<void> _submit() async {
@@ -69,7 +49,8 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
       await scope.membershipRepository.joinByInviteCode(
         uid: widget.uid,
         code: _codeController.text,
-        relationLabel: _resolvedRelationLabel(),
+        relationType: _selectedRelation,
+        customLabel: _resolvedCustomLabel(),
       );
       messenger.showSnackBar(
         const SnackBar(content: Text('참여를 신청했어요. 관리자 승인을 기다려 주세요.')),
@@ -112,21 +93,24 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
                       : null,
                 ),
                 const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
+                DropdownButtonFormField<RelationType>(
                   initialValue: _selectedRelation,
                   isExpanded: true,
+                  // 호칭이 14개라 팝업 높이를 제한해 약 5개만 보이고 나머지는 스크롤.
+                  menuMaxHeight: 280,
                   decoration: const InputDecoration(labelText: '나의 호칭 (선택)'),
                   items: [
-                    for (final r in _relationOptions)
-                      DropdownMenuItem(value: r, child: Text(r)),
-                    const DropdownMenuItem(
-                      value: _customValue,
-                      child: Text('기타 (직접 입력)'),
-                    ),
+                    for (final t in RelationType.values)
+                      DropdownMenuItem(
+                        value: t,
+                        child: Text(
+                          t == RelationType.etc ? '기타 (직접 입력)' : t.label,
+                        ),
+                      ),
                   ],
                   onChanged: (v) => setState(() => _selectedRelation = v),
                 ),
-                if (_selectedRelation == _customValue) ...[
+                if (_selectedRelation == RelationType.etc) ...[
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _customRelationController,
