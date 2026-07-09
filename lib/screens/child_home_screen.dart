@@ -137,7 +137,12 @@ class _FeatureCard extends StatelessWidget {
           children: [
             Icon(icon, size: 40, color: scheme.primary),
             const SizedBox(height: 8),
-            Text(label, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              label,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+            ),
           ],
         ),
       ),

@@ -77,7 +77,6 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
                   decoration: const InputDecoration(
                     labelText: '초대 코드',
                     hintText: '예: ABC234',
-                    border: OutlineInputBorder(),
                   ),
                   validator: (v) => (v == null || v.trim().isEmpty)
                       ? '초대 코드를 입력해 주세요.'
@@ -88,7 +87,6 @@ class _JoinGroupScreenState extends State<JoinGroupScreen> {
                   controller: _relationController,
                   decoration: const InputDecoration(
                     labelText: '나의 호칭 (선택, 예: 이모/삼촌)',
-                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 32),

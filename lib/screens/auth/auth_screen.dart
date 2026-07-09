@@ -120,10 +120,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       TextFormField(
                         controller: _displayNameController,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(
-                          labelText: '이름',
-                          border: OutlineInputBorder(),
-                        ),
+                        decoration: const InputDecoration(labelText: '이름'),
                         validator: (v) => (v == null || v.trim().isEmpty)
                             ? '이름을 입력해 주세요.'
                             : null,
@@ -133,10 +130,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       textInputAction: TextInputAction.next,
-                      decoration: const InputDecoration(
-                        labelText: '이메일',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: '이메일'),
                       validator: (v) {
                         if (v == null || v.trim().isEmpty) {
                           return '이메일을 입력해 주세요.';
@@ -151,10 +145,7 @@ class _AuthScreenState extends State<AuthScreen> {
                       obscureText: true,
                       textInputAction: TextInputAction.done,
                       onFieldSubmitted: (_) => _loading ? null : _submit(),
-                      decoration: const InputDecoration(
-                        labelText: '비밀번호',
-                        border: OutlineInputBorder(),
-                      ),
+                      decoration: const InputDecoration(labelText: '비밀번호'),
                       validator: (v) => (v == null || v.length < 6)
                           ? '비밀번호는 6자 이상이어야 해요.'
                           : null,

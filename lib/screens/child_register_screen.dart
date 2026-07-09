@@ -98,10 +98,7 @@ class _ChildRegisterScreenState extends State<ChildRegisterScreen> {
               children: [
                 TextFormField(
                   controller: _nameController,
-                  decoration: const InputDecoration(
-                    labelText: '아이 이름',
-                    border: OutlineInputBorder(),
-                  ),
+                  decoration: const InputDecoration(labelText: '아이 이름'),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? '이름을 입력해 주세요.' : null,
                 ),
@@ -125,7 +122,6 @@ class _ChildRegisterScreenState extends State<ChildRegisterScreen> {
                   controller: _relationController,
                   decoration: const InputDecoration(
                     labelText: '나의 호칭 (선택, 예: 엄마/아빠)',
-                    border: OutlineInputBorder(),
                   ),
                 ),
                 const SizedBox(height: 32),

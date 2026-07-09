@@ -140,6 +140,7 @@ class _GrowthBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final latest = records.last;
     final table = AppScope.of(context).growthReferenceTable;
 
@@ -174,15 +175,35 @@ class _GrowthBody extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       '${_trim(latest.value)} $unit',
-                      style: Theme.of(context).textTheme.headlineSmall,
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                   ],
                 ),
                 const Spacer(),
-                Text(
-                  percentileText ?? '백분위는 기준표 탑재 후 제공',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
+                if (percentileText != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: scheme.primaryContainer,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      percentileText,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: scheme.onPrimaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    '백분위는 기준표 탑재 후 제공',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
               ],
             ),
           ),
@@ -408,7 +429,6 @@ class _AddRecordSheetState extends State<_AddRecordSheet> {
               autofocus: true,
               decoration: InputDecoration(
                 labelText: '${widget.typeLabel} (${widget.unit})',
-                border: const OutlineInputBorder(),
               ),
               validator: (v) {
                 final parsed = double.tryParse((v ?? '').trim());

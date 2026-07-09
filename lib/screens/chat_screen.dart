@@ -4,6 +4,7 @@ import '../app_scope.dart';
 import '../models/chat_message.dart';
 import '../models/child.dart';
 import '../models/membership.dart';
+import '../theme/toss_theme.dart';
 
 /// 가족 그룹 단체 채팅. ACTIVE 멤버면 누구나 대화한다(보낸 사람 이름 표시).
 class ChatScreen extends StatefulWidget {
@@ -98,7 +99,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       onSubmitted: (_) => _sending ? null : _send(),
                       decoration: const InputDecoration(
                         hintText: '메시지 입력',
-                        border: OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
@@ -152,12 +152,15 @@ class _Bubble extends StatelessWidget {
               maxWidth: MediaQuery.of(context).size.width * 0.72,
             ),
             decoration: BoxDecoration(
-              color: isMine
-                  ? scheme.primaryContainer
-                  : scheme.surfaceContainerHighest,
+              color: isMine ? scheme.primary : scheme.surfaceContainer,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: Text(message.text),
+            child: Text(
+              message.text,
+              style: TextStyle(
+                color: isMine ? scheme.onPrimary : TossColors.g800,
+              ),
+            ),
           ),
         ],
       ),

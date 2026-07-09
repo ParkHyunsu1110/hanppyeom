@@ -335,7 +335,6 @@ class _CommentsSheetState extends State<_CommentsSheet> {
                       controller: _controller,
                       decoration: const InputDecoration(
                         hintText: '댓글 입력',
-                        border: OutlineInputBorder(),
                         isDense: true,
                       ),
                     ),
@@ -511,10 +510,7 @@ class _ComposeSheetState extends State<_ComposeSheet> {
             controller: _controller,
             maxLines: 4,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: '오늘의 기록을 남겨보세요',
-              border: OutlineInputBorder(),
-            ),
+            decoration: const InputDecoration(hintText: '오늘의 기록을 남겨보세요'),
           ),
           const SizedBox(height: 16),
           SegmentedButton<PostVisibility>(
