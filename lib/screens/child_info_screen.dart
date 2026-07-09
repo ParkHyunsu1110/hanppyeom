@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../app_scope.dart';
 import '../models/child.dart';
@@ -37,6 +38,10 @@ class ChildInfoScreen extends StatelessWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              Center(
+                child: _ChildAvatar(child: c, canEdit: _canEdit),
+              ),
+              const SizedBox(height: 24),
               _row(context, '이름', c.name),
               _row(context, '생년월일', _fmtDate(c.birthDate)),
               _row(context, '성별', c.sex == Sex.male ? '남' : '여'),
@@ -101,6 +106,166 @@ class ChildInfoScreen extends StatelessWidget {
   }
 }
 
+/// 아이 프로필 아바타. 사진이 있으면 원형으로 표시하고, 부모([canEdit])면 카메라
+/// 배지로 사진을 교체할 수 있다. 웹·모바일 공용으로 바이트 기반 업로드만 쓴다.
+class _ChildAvatar extends StatefulWidget {
+  const _ChildAvatar({required this.child, required this.canEdit});
+
+  final Child child;
+  final bool canEdit;
+
+  @override
+  State<_ChildAvatar> createState() => _ChildAvatarState();
+}
+
+class _ChildAvatarState extends State<_ChildAvatar> {
+  final _picker = ImagePicker();
+  bool _uploading = false;
+
+  Future<void> _changePhoto() async {
+    final scope = AppScope.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+    final XFile? picked;
+    try {
+      picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('사진을 열 수 없어요.')));
+      return;
+    }
+    if (picked == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final bytes = await picked.readAsBytes();
+      final ext = _extensionOf(
+        picked.name.isNotEmpty ? picked.name : picked.path,
+      );
+      final contentType = picked.mimeType ?? _contentTypeForExtension(ext);
+      final storageExt = ext.isNotEmpty
+          ? ext
+          : _extensionForContentType(contentType);
+      final url = await scope.storageRepository.uploadChildPhoto(
+        groupId: widget.child.id,
+        bytes: bytes,
+        contentType: contentType,
+        extension: storageExt,
+      );
+      // updateChild는 문서 전체를 set 하므로 copyWith로 다른 필드를 보존한다.
+      await scope.groupRepository.updateChild(
+        widget.child.id,
+        widget.child.copyWith(photoUrl: url),
+      );
+      messenger.showSnackBar(const SnackBar(content: Text('프로필 사진을 바꿨어요.')));
+    } catch (_) {
+      messenger.showSnackBar(const SnackBar(content: Text('사진 등록에 실패했어요.')));
+    } finally {
+      if (mounted) setState(() => _uploading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final photoUrl = widget.child.photoUrl;
+    final hasPhoto = photoUrl != null && photoUrl.isNotEmpty;
+    return Stack(
+      children: [
+        CircleAvatar(
+          radius: 48,
+          backgroundColor: scheme.surfaceContainerHighest,
+          backgroundImage: hasPhoto ? NetworkImage(photoUrl) : null,
+          // NetworkImage 로드 실패 시 아이콘으로 폴백.
+          onBackgroundImageError: hasPhoto ? (_, _) {} : null,
+          child: hasPhoto
+              ? null
+              : Icon(
+                  Icons.child_care,
+                  size: 48,
+                  color: scheme.onSurfaceVariant,
+                ),
+        ),
+        if (_uploading)
+          const Positioned.fill(
+            child: Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          ),
+        if (widget.canEdit)
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Material(
+              color: scheme.primary,
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: _uploading ? null : _changePhoto,
+                child: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.photo_camera,
+                    size: 18,
+                    color: scheme.onPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 파일명/경로에서 소문자 확장자(점 제외)를 뽑는다. 없으면 빈 문자열.
+String _extensionOf(String nameOrPath) {
+  final dot = nameOrPath.lastIndexOf('.');
+  if (dot == -1 || dot == nameOrPath.length - 1) return '';
+  final ext = nameOrPath.substring(dot + 1).toLowerCase();
+  return ext.length <= 4 ? ext : '';
+}
+
+/// 확장자로부터 Storage 규칙(image/.*)을 통과할 contentType을 정한다.
+String _contentTypeForExtension(String ext) {
+  switch (ext) {
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'png':
+      return 'image/png';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    case 'heic':
+      return 'image/heic';
+    default:
+      return 'image/jpeg';
+  }
+}
+
+/// contentType으로부터 저장 파일명에 쓸 확장자를 정한다.
+String _extensionForContentType(String contentType) {
+  switch (contentType) {
+    case 'image/png':
+      return 'png';
+    case 'image/gif':
+      return 'gif';
+    case 'image/webp':
+      return 'webp';
+    case 'image/heic':
+      return 'heic';
+    default:
+      return 'jpg';
+  }
+}
+
 /// 주민번호 행. 암호문은 Firestore의 [Child.rrnEncrypted]에 저장되고([RrnCipher]로
 /// 암·복호화), 마스킹은 복호화 없이 생년월일·성별로 구성한다.
 /// 등록/수정/삭제/전체보기 액션은 부모([canEdit])에게만 노출한다.
@@ -122,42 +287,6 @@ class _RrnRow extends StatelessWidget {
         ? (is2000s ? '3' : '1')
         : (is2000s ? '4' : '2');
     return '$yy$mm$dd-$g******';
-  }
-
-  /// 전체 표기: XXXXXX-XXXXXXX
-  String _formatted(String digits) =>
-      '${digits.substring(0, 6)}-${digits.substring(6)}';
-
-  // 전체 보기는 부모(canEdit)에게만 노출되고 본인 로그인 기기에서만 접근하므로,
-  // 별도 재인증 없이 바로 복호화해 보여준다(사용자 결정으로 재인증 마찰 제거).
-  Future<void> _reveal(BuildContext context) async {
-    final messenger = ScaffoldMessenger.of(context);
-    final encrypted = child.rrnEncrypted;
-    if (encrypted == null) return;
-    String digits;
-    try {
-      digits = RrnCipher.decryptRrn(encrypted);
-    } catch (_) {
-      messenger.showSnackBar(const SnackBar(content: Text('복호화에 실패했어요.')));
-      return;
-    }
-    if (!context.mounted) return;
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('주민등록번호'),
-        content: Text(
-          _formatted(digits),
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _editOrRegister(
@@ -227,34 +356,34 @@ class _RrnRow extends StatelessWidget {
           child: Builder(
             builder: (context) {
               if (hasRrn) {
+                // 부모가 아니면 마스킹만 보여준다(전체 보기·수정·삭제 없음).
+                if (!canEdit) return Text(_masked());
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(_masked()),
-                    if (canEdit)
-                      Wrap(
-                        spacing: 8,
-                        children: [
-                          TextButton(
-                            onPressed: () => _reveal(context),
-                            child: const Text('전체 보기'),
+                    _RrnHoldReveal(
+                      masked: _masked(),
+                      encrypted: child.rrnEncrypted!,
+                    ),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        TextButton(
+                          onPressed: () =>
+                              _editOrRegister(context, isEdit: true),
+                          child: const Text('수정'),
+                        ),
+                        TextButton(
+                          onPressed: () => _delete(context),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
                           ),
-                          TextButton(
-                            onPressed: () =>
-                                _editOrRegister(context, isEdit: true),
-                            child: const Text('수정'),
-                          ),
-                          TextButton(
-                            onPressed: () => _delete(context),
-                            style: TextButton.styleFrom(
-                              foregroundColor: Theme.of(
-                                context,
-                              ).colorScheme.error,
-                            ),
-                            child: const Text('삭제'),
-                          ),
-                        ],
-                      ),
+                          child: const Text('삭제'),
+                        ),
+                      ],
+                    ),
                   ],
                 );
               }
@@ -274,6 +403,81 @@ class _RrnRow extends StatelessWidget {
                 ],
               );
             },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 주민번호 "꾹 눌러 보기". 누르고 있는 동안에만 전체 번호를 인라인으로 보여주고
+/// 떼면 다시 마스킹으로 돌아간다(부모 전용). 다이얼로그 대신 마찰 없는 열람.
+///
+/// 전체 값은 [RrnCipher.decryptRrn]로 즉시 복호화한다(부모·본인 기기 한정이라
+/// 별도 재인증은 두지 않는다). 복호화 실패 시 조용히 마스킹을 유지한다.
+class _RrnHoldReveal extends StatefulWidget {
+  const _RrnHoldReveal({required this.masked, required this.encrypted});
+
+  final String masked;
+  final String encrypted;
+
+  @override
+  State<_RrnHoldReveal> createState() => _RrnHoldRevealState();
+}
+
+class _RrnHoldRevealState extends State<_RrnHoldReveal> {
+  bool _revealed = false;
+
+  /// 전체 표기: XXXXXX-XXXXXXX. 복호화 실패면 null(마스킹 유지).
+  String? _decryptedFormatted() {
+    try {
+      final digits = RrnCipher.decryptRrn(widget.encrypted);
+      return '${digits.substring(0, 6)}-${digits.substring(6)}';
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _reveal() {
+    // 누르는 순간 복호화를 시도해 실패하면 마스킹을 유지한다.
+    if (_decryptedFormatted() == null) return;
+    setState(() => _revealed = true);
+  }
+
+  void _hide() {
+    if (_revealed) setState(() => _revealed = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final full = _revealed ? _decryptedFormatted() : null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(full ?? widget.masked),
+        GestureDetector(
+          onTapDown: (_) => _reveal(),
+          onTapUp: (_) => _hide(),
+          onTapCancel: _hide,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _revealed ? Icons.visibility : Icons.visibility_off,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '꾹 눌러 전체 보기',
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],

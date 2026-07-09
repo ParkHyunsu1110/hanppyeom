@@ -59,6 +59,21 @@ void main() {
       expect(back.notes, '특이사항');
     });
 
+    test('photoUrl 라운드트립', () async {
+      final child = Child(
+        id: 'c1',
+        name: '도윤',
+        birthDate: DateTime(2024, 3, 15),
+        sex: Sex.male,
+        photoUrl: 'https://example.com/p.jpg',
+      );
+      final back = Child.fromDoc(await roundTrip('children/c1', child.toMap()));
+
+      expect(back.photoUrl, 'https://example.com/p.jpg');
+      expect(child.copyWith(photoUrl: 'x').photoUrl, 'x');
+      expect(child.copyWith().photoUrl, 'https://example.com/p.jpg');
+    });
+
     test('birthDate는 Timestamp로 저장된다', () {
       final child = Child(
         id: 'c1',
