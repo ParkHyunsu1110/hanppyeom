@@ -253,7 +253,8 @@ class _MemberTile extends StatelessWidget {
       await repo.updateRole(
         membershipId: membership.id,
         role: result.role,
-        relationLabel: result.relationLabel,
+        relationType: result.relationType,
+        customLabel: result.customLabel,
         isAdmin: result.isAdmin,
       );
       messenger.showSnackBar(const SnackBar(content: Text('역할을 지정했어요.')));
@@ -334,16 +335,20 @@ class _MemberTile extends StatelessWidget {
   }
 }
 
-/// 역할 지정 다이얼로그 결과.
+/// 역할 지정 다이얼로그 결과. 권한은 [role], 호칭은 [relationType]으로 분리한다.
 class _RoleAssignment {
   const _RoleAssignment({
     required this.role,
-    this.relationLabel,
+    this.relationType,
+    this.customLabel,
     required this.isAdmin,
   });
 
   final MemberRole role;
-  final String? relationLabel;
+  final RelationType? relationType;
+
+  /// [RelationType.etc] 선택 시 자유 입력 호칭.
+  final String? customLabel;
   final bool isAdmin;
 }
 
@@ -360,8 +365,11 @@ class _MemberRoleDialog extends StatefulWidget {
 class _MemberRoleDialogState extends State<_MemberRoleDialog> {
   late MemberRole _role = widget.membership.role;
   late bool _isAdmin = widget.membership.isAdmin;
+  late RelationType? _relationType = widget.membership.relationType;
   late final TextEditingController _label = TextEditingController(
-    text: widget.membership.relationLabel ?? '',
+    text: widget.membership.relationType == RelationType.etc
+        ? (widget.membership.relationLabel ?? '')
+        : '',
   );
 
   @override
@@ -376,7 +384,10 @@ class _MemberRoleDialogState extends State<_MemberRoleDialog> {
       context,
       _RoleAssignment(
         role: _role,
-        relationLabel: label.isEmpty ? null : label,
+        relationType: _relationType,
+        customLabel: _relationType == RelationType.etc && label.isNotEmpty
+            ? label
+            : null,
         isAdmin: _isAdmin,
       ),
     );
@@ -399,10 +410,28 @@ class _MemberRoleDialogState extends State<_MemberRoleDialog> {
             onSelectionChanged: (s) => setState(() => _role = s.first),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _label,
-            decoration: const InputDecoration(labelText: '호칭 (선택, 예: 이모/삼촌)'),
+          DropdownButtonFormField<RelationType>(
+            initialValue: _relationType,
+            isExpanded: true,
+            // 호칭이 14개라 팝업 높이를 제한해 약 5개만 보이고 나머지는 스크롤.
+            menuMaxHeight: 280,
+            decoration: const InputDecoration(labelText: '호칭 (선택)'),
+            items: [
+              for (final t in RelationType.values)
+                DropdownMenuItem(
+                  value: t,
+                  child: Text(t == RelationType.etc ? '기타 (직접 입력)' : t.label),
+                ),
+            ],
+            onChanged: (v) => setState(() => _relationType = v),
           ),
+          if (_relationType == RelationType.etc) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _label,
+              decoration: const InputDecoration(labelText: '호칭 직접 입력 (예: 큰이모)'),
+            ),
+          ],
           const SizedBox(height: 4),
           SwitchListTile(
             contentPadding: EdgeInsets.zero,

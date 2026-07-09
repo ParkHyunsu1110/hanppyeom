@@ -40,7 +40,7 @@ void main() {
     await memberships.joinByInviteCode(
       uid: 'aunt',
       code: g.code,
-      relationLabel: '이모',
+      relationType: RelationType.imo,
     );
 
     final m = Membership.fromDoc(
@@ -52,7 +52,28 @@ void main() {
     expect(m.role, MemberRole.relative);
     expect(m.status, MembershipStatus.pending);
     expect(m.isAdmin, isFalse);
-    expect(m.relationLabel, '이모');
+    expect(m.relationType, RelationType.imo);
+    expect(m.relationLabel, isNull);
+  });
+
+  test('joinByInviteCode ETC는 customLabel을 relationLabel에 담는다', () async {
+    final g = await seedGroup();
+
+    await memberships.joinByInviteCode(
+      uid: 'aunt',
+      code: g.code,
+      relationType: RelationType.etc,
+      customLabel: '큰이모',
+    );
+
+    final m = Membership.fromDoc(
+      await fs
+          .collection('memberships')
+          .doc(Membership.docId(g.groupId, 'aunt'))
+          .get(),
+    );
+    expect(m.relationType, RelationType.etc);
+    expect(m.relationLabel, '큰이모');
   });
 
   test('코드는 대소문자/공백을 정규화한다', () async {

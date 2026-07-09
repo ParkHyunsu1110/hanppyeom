@@ -24,7 +24,8 @@ class MembershipRepository {
   Future<void> joinByInviteCode({
     required String uid,
     required String code,
-    String? relationLabel,
+    RelationType? relationType,
+    String? customLabel,
   }) async {
     final normalized = code.trim().toUpperCase();
     final codeSnap = await _inviteCodes.doc(normalized).get();
@@ -60,7 +61,8 @@ class MembershipRepository {
       role: MemberRole.relative,
       isAdmin: false,
       status: MembershipStatus.pending,
-      relationLabel: relationLabel,
+      relationType: relationType,
+      relationLabel: relationType == RelationType.etc ? customLabel : null,
     );
     await ref.set(membership.toMap());
   }
@@ -75,11 +77,13 @@ class MembershipRepository {
   Future<void> updateRole({
     required String membershipId,
     required MemberRole role,
-    String? relationLabel,
+    RelationType? relationType,
+    String? customLabel,
     required bool isAdmin,
   }) => _memberships.doc(membershipId).update({
     'role': role.wire,
-    'relationLabel': relationLabel,
+    'relationType': relationType?.wire,
+    'relationLabel': relationType == RelationType.etc ? customLabel : null,
     'isAdmin': isAdmin,
   });
 
