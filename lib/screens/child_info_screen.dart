@@ -451,33 +451,33 @@ class _RrnHoldRevealState extends State<_RrnHoldReveal> {
   @override
   Widget build(BuildContext context) {
     final full = _revealed ? _decryptedFormatted() : null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    final primary = Theme.of(context).colorScheme.primary;
+    // 주민번호 값 옆에 "꾹 눌러 보기"를 둔다(누르는 동안만 전체 표시).
+    return Row(
       children: [
-        Text(full ?? widget.masked),
+        Flexible(child: Text(full ?? widget.masked)),
+        const SizedBox(width: 8),
         GestureDetector(
           onTapDown: (_) => _reveal(),
           onTapUp: (_) => _hide(),
           onTapCancel: _hide,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  _revealed ? Icons.visibility : Icons.visibility_off,
-                  size: 18,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  '꾹 눌러 전체 보기',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                ),
-              ],
-            ),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                _revealed ? Icons.visibility : Icons.visibility_off,
+                size: 18,
+                color: primary,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '꾹 눌러 보기',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelLarge?.copyWith(color: primary),
+              ),
+            ],
           ),
         ),
       ],

@@ -623,7 +623,7 @@ class _ComposeSheetState extends State<_ComposeSheet> {
   final List<_PickedPhoto> _photos = [];
   late PostVisibility _visibility =
       widget.initialVisibility ?? PostVisibility.family;
-  static const _maxPhotos = 4;
+  static const _maxPhotos = 10;
   static const _maxBytes = 10 * 1024 * 1024; // Storage 규칙: 10MB 미만
 
   @override
