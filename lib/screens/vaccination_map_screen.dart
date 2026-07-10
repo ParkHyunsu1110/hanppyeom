@@ -4,7 +4,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../services/map/hospital_finder.dart';
 
-/// 근처 접종 가능 병원/의원 지도(OpenStreetMap, 키 불필요).
+/// 근처 접종 가능 병원/의원 지도(OSM 데이터 + CARTO Voyager 타일, 키 불필요).
 class VaccinationMapScreen extends StatefulWidget {
   const VaccinationMapScreen({super.key});
 
@@ -81,7 +81,8 @@ class _VaccinationMapScreenState extends State<VaccinationMapScreen> {
                     children: [
                       TileLayer(
                         urlTemplate:
-                            'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                            'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+                        subdomains: const ['a', 'b', 'c', 'd'],
                         userAgentPackageName: 'com.hyunsu.hanppyeom',
                       ),
                       MarkerLayer(
@@ -105,6 +106,12 @@ class _VaccinationMapScreenState extends State<VaccinationMapScreen> {
                                 color: Colors.red,
                               ),
                             ),
+                        ],
+                      ),
+                      RichAttributionWidget(
+                        attributions: [
+                          TextSourceAttribution('OpenStreetMap contributors'),
+                          TextSourceAttribution('CARTO'),
                         ],
                       ),
                     ],
