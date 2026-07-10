@@ -6,6 +6,7 @@ import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
 import 'repositories/chat_repository.dart';
 import 'repositories/feed_repository.dart';
+import 'repositories/feeding_repository.dart';
 import 'repositories/sleep_repository.dart';
 import 'repositories/storage_repository.dart';
 import 'repositories/vaccination_repository.dart';
@@ -39,6 +40,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
   final MembershipRepository _membershipRepository = MembershipRepository();
   final GrowthRepository _growthRepository = GrowthRepository();
   final SleepRepository _sleepRepository = SleepRepository();
+  final FeedingRepository _feedingRepository = FeedingRepository();
   final VaccinationRepository _vaccinationRepository = VaccinationRepository();
   final FeedRepository _feedRepository = FeedRepository();
   final ChatRepository _chatRepository = ChatRepository();
@@ -53,6 +55,7 @@ class _HanppyeomAppState extends State<HanppyeomApp> {
       growthRepository: _growthRepository,
       growthReferenceTable: widget.growthReferenceTable,
       sleepRepository: _sleepRepository,
+      feedingRepository: _feedingRepository,
       vaccinationRepository: _vaccinationRepository,
       vaccineSchedule: widget.vaccineSchedule,
       feedRepository: _feedRepository,

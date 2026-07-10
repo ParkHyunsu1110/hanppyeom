@@ -184,6 +184,17 @@ service cloud.firestore {
       allow delete: if isParent(resource.data.groupId);
     }
 
+    // ── feedingRecords ────────────────────────────────────
+    // 수유 기록. 성장·수면과 동일 패턴: 멤버 읽기 / 부모 쓰기 / recordedBy 본인.
+    match /feedingRecords/{recordId} {
+      allow read: if isActiveMember(resource.data.groupId);
+      allow create: if isParent(request.resource.data.groupId)
+        && request.resource.data.recordedBy == request.auth.uid;
+      allow update: if isParent(resource.data.groupId)
+        && request.resource.data.groupId == resource.data.groupId;
+      allow delete: if isParent(resource.data.groupId);
+    }
+
     // ── vaccinations ──────────────────────────────────────
     // 접종 완료 기록. 멤버 읽기 / 부모 쓰기 / recordedBy 본인.
     match /vaccinations/{recordId} {
