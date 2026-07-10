@@ -5,6 +5,7 @@ import '../models/membership.dart';
 import 'chat_screen.dart';
 import 'child_info_screen.dart';
 import 'feed_screen.dart';
+import 'feeding_screen.dart';
 import 'group_manage_screen.dart';
 import 'growth_screen.dart';
 import 'membership_display.dart';
@@ -62,6 +63,14 @@ class ChildHomeScreen extends StatelessWidget {
             onTap: () => _go(
               context,
               SleepScreen(child: child, myMembership: myMembership),
+            ),
+          ),
+          _FeatureCard(
+            icon: Icons.local_drink,
+            label: '수유',
+            onTap: () => _go(
+              context,
+              FeedingScreen(child: child, myMembership: myMembership),
             ),
           ),
           _FeatureCard(

@@ -4,6 +4,7 @@ export 'chat_message.dart';
 export 'child.dart';
 export 'comment.dart';
 export 'family_group.dart';
+export 'feeding_record.dart';
 export 'growth_record.dart';
 export 'growth_reference.dart';
 export 'membership.dart';

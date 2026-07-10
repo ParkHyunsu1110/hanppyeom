@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 
 import 'repositories/chat_repository.dart';
 import 'repositories/feed_repository.dart';
+import 'repositories/feeding_repository.dart';
 import 'repositories/group_repository.dart';
 import 'repositories/growth_repository.dart';
 import 'repositories/membership_repository.dart';
@@ -23,6 +24,7 @@ class AppScope extends InheritedWidget {
     required this.growthRepository,
     required this.growthReferenceTable,
     required this.sleepRepository,
+    required this.feedingRepository,
     required this.vaccinationRepository,
     required this.vaccineSchedule,
     required this.feedRepository,
@@ -37,6 +39,7 @@ class AppScope extends InheritedWidget {
   final GrowthRepository growthRepository;
   final GrowthReferenceTable growthReferenceTable;
   final SleepRepository sleepRepository;
+  final FeedingRepository feedingRepository;
   final VaccinationRepository vaccinationRepository;
   final VaccineSchedule vaccineSchedule;
   final FeedRepository feedRepository;

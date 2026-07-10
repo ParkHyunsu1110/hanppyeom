@@ -18,6 +18,14 @@
       ]
     },
     {
+      "collectionGroup": "feedingRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "fedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "posts",
       "queryScope": "COLLECTION",
       "fields": [
