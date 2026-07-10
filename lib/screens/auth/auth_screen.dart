@@ -54,12 +54,17 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       // 성공 시 AuthGate가 화면을 전환한다(이 State는 dispose됨).
     } on FirebaseAuthException catch (e) {
+      // 화면엔 친절한 메시지만 보여주고, 원인은 로그로 남겨 다음 진단에 활용한다.
+      debugPrint(
+        '[AuthScreen] FirebaseAuthException code=${e.code} message=${e.message}',
+      );
       if (!mounted) return;
       setState(() {
         _loading = false;
         _error = _messageFor(e.code);
       });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[AuthScreen] unexpected error: $e');
       if (!mounted) return;
       setState(() {
         _loading = false;
