@@ -27,18 +27,21 @@ class ChildHomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final suffix = roleSuffix(myMembership);
+    final isParent = myMembership.role == MemberRole.parent;
     return Scaffold(
       appBar: AppBar(
         title: Text(child.name),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(24),
+          preferredSize: const Size.fromHeight(28),
           child: Padding(
             padding: const EdgeInsets.only(bottom: 8),
             child: Text(
               suffix == null
                   ? roleLabel(myMembership)
                   : '${roleLabel(myMembership)} · $suffix',
-              style: Theme.of(context).textTheme.bodySmall,
+              style: Theme.of(
+                context,
+              ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
           ),
         ),
@@ -50,30 +53,6 @@ class ChildHomeScreen extends StatelessWidget {
         crossAxisSpacing: 12,
         children: [
           _FeatureCard(
-            icon: Icons.show_chart,
-            label: '성장기록',
-            onTap: () => _go(
-              context,
-              GrowthScreen(child: child, myMembership: myMembership),
-            ),
-          ),
-          _FeatureCard(
-            icon: Icons.bedtime,
-            label: '수면',
-            onTap: () => _go(
-              context,
-              SleepScreen(child: child, myMembership: myMembership),
-            ),
-          ),
-          _FeatureCard(
-            icon: Icons.local_drink,
-            label: '수유',
-            onTap: () => _go(
-              context,
-              FeedingScreen(child: child, myMembership: myMembership),
-            ),
-          ),
-          _FeatureCard(
             icon: Icons.badge,
             label: '아이 정보',
             onTap: () => _go(
@@ -82,11 +61,37 @@ class ChildHomeScreen extends StatelessWidget {
             ),
           ),
           _FeatureCard(
-            icon: Icons.vaccines,
-            label: '예방접종',
+            icon: Icons.show_chart,
+            label: '성장기록',
             onTap: () => _go(
               context,
-              VaccinationScreen(child: child, myMembership: myMembership),
+              GrowthScreen(child: child, myMembership: myMembership),
+            ),
+          ),
+          if (isParent)
+            _FeatureCard(
+              icon: Icons.bedtime,
+              label: '수면',
+              onTap: () => _go(
+                context,
+                SleepScreen(child: child, myMembership: myMembership),
+              ),
+            ),
+          if (isParent)
+            _FeatureCard(
+              icon: Icons.local_dining,
+              label: '식사',
+              onTap: () => _go(
+                context,
+                FeedingScreen(child: child, myMembership: myMembership),
+              ),
+            ),
+          _FeatureCard(
+            icon: Icons.chat_bubble,
+            label: '채팅',
+            onTap: () => _go(
+              context,
+              ChatScreen(child: child, myMembership: myMembership),
             ),
           ),
           _FeatureCard(
@@ -97,14 +102,15 @@ class ChildHomeScreen extends StatelessWidget {
               FeedScreen(child: child, myMembership: myMembership),
             ),
           ),
-          _FeatureCard(
-            icon: Icons.chat_bubble,
-            label: '채팅',
-            onTap: () => _go(
-              context,
-              ChatScreen(child: child, myMembership: myMembership),
+          if (isParent)
+            _FeatureCard(
+              icon: Icons.vaccines,
+              label: '예방접종',
+              onTap: () => _go(
+                context,
+                VaccinationScreen(child: child, myMembership: myMembership),
+              ),
             ),
-          ),
           _FeatureCard(
             icon: Icons.group,
             label: '가족·초대',
@@ -141,6 +147,9 @@ class _FeatureCard extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
+        splashFactory: NoSplash.splashFactory,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
