@@ -78,15 +78,18 @@ class GroupManageScreen extends StatelessWidget {
                   child: Center(child: CircularProgressIndicator()),
                 );
               }
-              final members = snapshot.data!.where(
-                (m) => m.status == MembershipStatus.active,
-              );
+              final members = snapshot.data!
+                  .where((m) => m.status == MembershipStatus.active)
+                  .toList();
+              // Firestore 규칙은 문서 수를 셀 수 없어 앱 레벨 가드로 유일 관리자를 보호한다.
+              final activeAdminCount = members.where((m) => m.isAdmin).length;
               return Column(
                 children: members
                     .map(
                       (m) => _MemberTile(
                         membership: m,
                         canManage: _isAdmin && m.userId != myMembership.userId,
+                        isSoleAdmin: m.isAdmin && activeAdminCount == 1,
                       ),
                     )
                     .toList(),
@@ -233,7 +236,11 @@ class _PendingTile extends StatelessWidget {
 }
 
 class _MemberTile extends StatelessWidget {
-  const _MemberTile({required this.membership, this.canManage = false});
+  const _MemberTile({
+    required this.membership,
+    this.canManage = false,
+    this.isSoleAdmin = false,
+  });
 
   final Membership membership;
 
@@ -241,14 +248,27 @@ class _MemberTile extends StatelessWidget {
   /// 규칙도 isGroupAdmin을 강제한다.
   final bool canManage;
 
+  /// 이 구성원이 그룹의 유일한 활성 관리자인지.
+  /// Firestore 규칙은 문서 수를 셀 수 없어(카운트 불가) 앱 레벨 가드로 처리한다.
+  /// 유일 관리자면 내보내기·관리자 강등을 막아 그룹이 관리자 없는 상태가 되지 않게 한다.
+  final bool isSoleAdmin;
+
   Future<void> _editRole(BuildContext context) async {
     final repo = AppScope.of(context).membershipRepository;
     final messenger = ScaffoldMessenger.of(context);
     final result = await showDialog<_RoleAssignment>(
       context: context,
-      builder: (_) => _MemberRoleDialog(membership: membership),
+      builder: (_) =>
+          _MemberRoleDialog(membership: membership, lockAdmin: isSoleAdmin),
     );
     if (result == null) return;
+    // 유일 관리자를 강등하려는 저장은 앱 레벨에서 차단한다(다이얼로그 스위치 disabled의 이중 방어).
+    if (isSoleAdmin && !result.isAdmin) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('그룹에 관리자가 최소 1명은 있어야 해요.')),
+      );
+      return;
+    }
     try {
       await repo.updateRole(
         membershipId: membership.id,
@@ -266,6 +286,13 @@ class _MemberTile extends StatelessWidget {
   Future<void> _remove(BuildContext context, String displayName) async {
     final repo = AppScope.of(context).membershipRepository;
     final messenger = ScaffoldMessenger.of(context);
+    // 유일 관리자는 내보낼 수 없다(앱 레벨 가드 — 규칙은 카운트 불가).
+    if (isSoleAdmin) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text('그룹에 관리자가 최소 1명은 있어야 해요.')),
+      );
+      return;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -354,9 +381,12 @@ class _RoleAssignment {
 
 /// 관리자가 구성원의 역할(부모/친척)·호칭·관리자 여부를 지정하는 다이얼로그.
 class _MemberRoleDialog extends StatefulWidget {
-  const _MemberRoleDialog({required this.membership});
+  const _MemberRoleDialog({required this.membership, this.lockAdmin = false});
 
   final Membership membership;
+
+  /// 이 구성원이 유일 관리자면 관리자 스위치를 끌 수 없게(disabled) 한다.
+  final bool lockAdmin;
 
   @override
   State<_MemberRoleDialog> createState() => _MemberRoleDialogState();
@@ -436,8 +466,13 @@ class _MemberRoleDialogState extends State<_MemberRoleDialog> {
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('관리자 권한'),
+            subtitle: widget.lockAdmin
+                ? const Text('그룹에 관리자가 최소 1명은 있어야 해요.')
+                : null,
             value: _isAdmin,
-            onChanged: (v) => setState(() => _isAdmin = v),
+            onChanged: widget.lockAdmin
+                ? null
+                : (v) => setState(() => _isAdmin = v),
           ),
         ],
       ),
