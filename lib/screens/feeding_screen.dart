@@ -25,11 +25,11 @@ class FeedingScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final scope = AppScope.of(context);
     return Scaffold(
-      appBar: AppBar(title: Text('${child.name} · 수유')),
+      appBar: AppBar(title: Text('${child.name} · 식사')),
       floatingActionButton: _canEdit
           ? FloatingActionButton.extended(
               icon: const Icon(Icons.add),
-              label: const Text('수유 추가'),
+              label: const Text('식사 추가'),
               onPressed: () => _add(context),
             )
           : null,
@@ -44,7 +44,7 @@ class FeedingScreen extends StatelessWidget {
           }
           final records = snapshot.data!;
           if (records.isEmpty) {
-            return const Center(child: Text('수유 기록이 아직 없어요.'));
+            return const Center(child: Text('식사 기록이 아직 없어요.'));
           }
           final byDay = _groupByDay(records);
           final days = byDay.keys.toList()..sort((a, b) => b.compareTo(a));
@@ -96,7 +96,7 @@ class FeedingScreen extends StatelessWidget {
         memo: result.memo,
         recordedBy: myMembership.userId,
       );
-      messenger.showSnackBar(const SnackBar(content: Text('수유를 기록했어요.')));
+      messenger.showSnackBar(const SnackBar(content: Text('식사를 기록했어요.')));
     } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('추가에 실패했어요. 다시 시도해 주세요.')),
@@ -143,7 +143,7 @@ class _DaySection extends StatelessWidget {
         amountMl: result.amountMl,
         memo: result.memo,
       );
-      messenger.showSnackBar(const SnackBar(content: Text('수유 기록을 수정했어요.')));
+      messenger.showSnackBar(const SnackBar(content: Text('식사 기록을 수정했어요.')));
     } catch (_) {
       messenger.showSnackBar(
         const SnackBar(content: Text('수정에 실패했어요. 다시 시도해 주세요.')),
@@ -160,7 +160,7 @@ class _DaySection extends StatelessWidget {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('삭제할까요?'),
-        content: const Text('이 수유 기록을 삭제해요.'),
+        content: const Text('이 식사 기록을 삭제해요.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -338,7 +338,7 @@ class _AddFeedingSheetState extends State<_AddFeedingSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            widget.isEdit ? '수유 수정' : '수유 추가',
+            widget.isEdit ? '식사 수정' : '식사 추가',
             style: Theme.of(context).textTheme.titleLarge,
           ),
           const SizedBox(height: 16),
